@@ -1,0 +1,48 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build (Debug)",
+			"type": "shell",
+			"command": "bash",
+			"args": ["${workspaceFolder}/.vscode/build.sh", "build", "debug"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Build (Release)",
+			"type": "shell",
+			"command": "bash",
+			"args": ["${workspaceFolder}/.vscode/build.sh", "build", "release"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Clean",
+			"type": "shell",
+			"command": "bash",
+			"args": ["${workspaceFolder}/.vscode/build.sh", "clean"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		}
+	]
+}
+  
