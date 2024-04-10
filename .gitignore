@@ -2,3 +2,4 @@ bin/
 
 *.txt
 vgcore.*
+.vscode/settings.json
