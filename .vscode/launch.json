@@ -7,7 +7,7 @@
 			"name": "Launch",
 			"preLaunchTask": "Build (Debug)",
 			"program": "${workspaceRoot}/bin/compiler",
-			"cwd": "${workspaceRoot}/bin/",
+			"cwd": "${workspaceRoot}/",
 			"args": ["program.in"]
 		}
 	]
