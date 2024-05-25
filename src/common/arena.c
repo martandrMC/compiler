@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+// Internal Functions //
+
 static region_t *_create_region(size_t block_size) {
 	size_t header = (sizeof(region_t) - 1) / sizeof(uintptr_t) + 1;
 	region_t *region = (region_t *) calloc(header + block_size, sizeof(uintptr_t));
@@ -30,6 +32,8 @@ static void *_alloc_first(arena_t *arena, size_t block_size_bytes) {
 	arena->last->used += block_size;
 	return block;
 }
+
+// External Functions //
 
 arena_t arena_new(size_t min_region_size_bytes) {
 	size_t min_region_size = (min_region_size_bytes - 1) / sizeof(uintptr_t) + 1;

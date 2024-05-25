@@ -1,6 +1,6 @@
-#include "io.h"
-#include "lexer.h"
-#include "arena.h"
+#include "common/io.h"
+#include "common/arena.h"
+#include "lexer/lexer.h"
 
 #include <stdio.h>
 #include <stdlib.h>

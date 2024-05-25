@@ -1,7 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "io.h"
+#include "common/io.h"
 
 typedef enum {
 	// Internal

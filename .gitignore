@@ -1,5 +1,7 @@
 bin/
 
 *.txt
+*.in
+*.out
 vgcore.*
 .vscode/settings.json
