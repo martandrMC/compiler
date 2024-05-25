@@ -2,8 +2,8 @@
 
 function build {
 	case $1 in
-		"release") GCC_ARGS="-Wall -Wextra -pedantic -O2 -Iincl/" ;;
-		"debug") GCC_ARGS="-Wall -Wextra -pedantic -g -Iincl/" ;;
+		"release") GCC_ARGS="-Wall -Wextra -pedantic -O2" ;;
+		"debug") GCC_ARGS="-Wall -Wextra -pedantic -g" ;;
 	esac
 	build_rec 'src'
 	binfiles=$(find 'bin' -maxdepth 1 -mindepth 1 -type f -name "*.o")
