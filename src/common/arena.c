@@ -1,4 +1,5 @@
 #include "arena.h"
+#include "io.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -6,9 +7,13 @@
 // Internal Functions //
 
 static region_t *_create_region(size_t block_size) {
+	// round up to the next highest mutliple of uintptr_t
 	size_t header = (sizeof(region_t) - 1) / sizeof(uintptr_t) + 1;
+	// ask libc for a new zeroed region and initialise it
 	region_t *region = (region_t *) calloc(header + block_size, sizeof(uintptr_t));
-	if(region != NULL) region->next = NULL, region->used = 0, region->size = block_size;
+	error_if(region == NULL);
+	region->next = NULL, region->used = 0; // redundant
+	region->size = block_size;
 	return region;
 }
 
@@ -36,6 +41,7 @@ static void *_alloc_first(arena_t *arena, size_t block_size_bytes) {
 // External Functions //
 
 arena_t arena_new(size_t min_region_size_bytes) {
+	// round up to the next highest mutliple of uintptr_t
 	size_t min_region_size = (min_region_size_bytes - 1) / sizeof(uintptr_t) + 1;
 	return (arena_t) {
 		.min_region_size = min_region_size,

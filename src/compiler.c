@@ -31,45 +31,23 @@ int main(int argc, char **argv) {
 	assert(sizeof(char) == 1);
 	if(argc != 2) exit(EXIT_FAILURE);
 
-	FILE *fdesc = fopen(argv[1], "r");
-	error_if(!fdesc);
-	string_t file = str_read(fdesc);
-	error_if(!file.string);
-	fclose(fdesc);
+	lexer_init(argv[1]);
+	token_t *bt = lexer_next();
 
-	arena_t toks = arena_new(10 * sizeof (tok_list_t));
-	tok_list_t *prev = NULL, *list;
-
-	for(
-		token_t tok = init_lexer(file);
-		tok.type != TOK_EOF;
-		tok = next_token()
-	) {
-		tok_list_t *curr = arena_alloc(&toks, sizeof (tok_list_t));
-		curr->tok = tok, curr->next = NULL;
-		if(prev != NULL) prev->next = curr;
-		else list = curr;
-		prev = curr;
-	}
-
-	for(tok_list_t *curr = list; curr != NULL; curr = curr->next) {
-		token_t tok = curr->tok;
-		printf("%s(", tok_names[tok.type]);
-		str_write(stdout, tok.content);
+	for(token_t *tok = bt; tok->type != TOK_EOF; tok = lexer_next()) {
+		printf("%s(", tok_names[tok->type]);
+		str_write(stdout, tok->content);
 		puts(")");
 	}
+	
+	puts("================");
+	lexer_backtrack(bt);
 
-	puts("And again!");
-
-	for(tok_list_t *curr = list; curr != NULL; curr = curr->next) {
-		token_t tok = curr->tok;
-		printf("%s(", tok_names[tok.type]);
-		str_write(stdout, tok.content);
+	for(token_t *tok = lexer_next(); tok->type != TOK_EOF; tok = lexer_next()) {
+		printf("%s(", tok_names[tok->type]);
+		str_write(stdout, tok->content);
 		puts(")");
 	}
-
-	arena_free(&toks);
-	free(file.string);
 
 	exit(EXIT_SUCCESS);
 }

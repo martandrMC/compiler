@@ -3,7 +3,7 @@
 
 #include "common/io.h"
 
-typedef enum {
+typedef enum token_type {
 	// Internal
 	TOK_ERROR = 0, TOK_EOF,
 	// Structural
@@ -21,14 +21,20 @@ typedef enum {
 	TOK_TYPE_NAT, TOK_TYPE_INT, TOK_TYPE_BOOL,
 	// Others
 	TOK_IDENT, TOK_LIT_NUM
-} tok_type;
+} tok_type_t;
 
 typedef struct token {
-	tok_type type;
+	tok_type_t type;
 	string_t content;
 } token_t;
 
-token_t init_lexer(string_t input);
-token_t next_token();
+typedef struct token_list {
+	struct token_list *next;
+	token_t token;
+} token_list_t;
+
+void lexer_init(const char *file_path);
+void lexer_backtrack(token_t *next_ptr);
+token_t *lexer_next(void);
 
 #endif // LEXER_H
