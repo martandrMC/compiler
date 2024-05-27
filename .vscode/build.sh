@@ -2,8 +2,9 @@
 
 function build {
 	case $1 in
-		"release") GCC_ARGS="-Wall -Wextra -pedantic -O2" ;;
-		"debug") GCC_ARGS="-Wall -Wextra -pedantic -g" ;;
+		# So far the minimum viable standard is C99
+		"release") GCC_ARGS="-Wall -Wextra -pedantic --std=c99 -O2" ;;
+		"debug") GCC_ARGS="-Wall -Wextra -pedantic --std=c99 -g" ;;
 	esac
 	build_rec 'src'
 	binfiles=$(find 'bin' -maxdepth 1 -mindepth 1 -type f -name "*.o")
@@ -16,6 +17,7 @@ function build_rec {
 	local incldir=$(echo "$1" | sed -e 's/src/incl/')
 	local bindir=$(echo "$1" | sed -e 's/src/bin/')
 
+	# Find and compile all C files in the current directory
 	find $1 -maxdepth 1 -mindepth 1 -type f -name "*.c" \
 	| while read -r srcfile ; do
 		filename=$(echo "$srcfile" | xargs basename | cut -d'.' -f1)
@@ -26,6 +28,7 @@ function build_rec {
 		gcc $GCC_ARGS -c -o "$binfile" $srcfile -Iincl -I"$incldir"
 	done
 
+	# Recurse for all subdirectories and then merge generated object files
 	find $1 -maxdepth 1 -mindepth 1 -type d \
 	| while read -r srcdir ; do
 		build_rec "$srcdir"
