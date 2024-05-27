@@ -35,7 +35,7 @@ static const char *map_keys[MAP_SIZE] = {
 	"true", "", "var", "false", "while", "if", "end", "not"
 };
 
-static const tok_type_t map_vals[MAP_SIZE] = {
+static const token_type_t map_vals[MAP_SIZE] = {
 	TOK_KW_DO, TOK_TYPE_NAT, TOK_KW_AND, TOK_KW_OR,
 	TOK_TYPE_BOOL, TOK_KW_RETURN, TOK_KW_NIL, TOK_TYPE_INT,
 	TOK_KW_TRUE, TOK_IDENT, TOK_KW_VAR, TOK_KW_FALSE,

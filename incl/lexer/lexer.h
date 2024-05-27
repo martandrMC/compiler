@@ -3,28 +3,34 @@
 
 #include "common/io.h"
 
+#define FOREACH_TOKEN(FN) \
+	/* Internal */ \
+	FN(ERROR) FN(EOF) \
+	/* Structural */ \
+	FN(OPEN_ROUND) FN(CLOSE_ROUND) \
+	FN(COMMA) FN(COLON) FN(SEMICOLON) \
+	/* Operators */ \
+	FN(OP_ASSIGN) FN(OP_PLUS) FN(OP_MINUS) \
+	FN(OP_LESS_THAN) FN(OP_GREATER_THAN) \
+	/* Keywords */ \
+	FN(KW_DO) FN(KW_END) FN(KW_RETURN) \
+	FN(KW_VAR) FN(KW_IF) FN(KW_WHILE) \
+	FN(KW_AND) FN(KW_OR) FN(KW_NOT) \
+	FN(KW_TRUE) FN(KW_FALSE) FN(KW_NIL) \
+	/* Base Types */ \
+	FN(TYPE_NAT) FN(TYPE_INT) FN(TYPE_BOOL) \
+	/* Others */ \
+	FN(IDENT) FN(LIT_NUM)
+
+#define GENERATE_ENUM(VAL) TOK_##VAL,
+extern const char *token_type_strs[];
 typedef enum token_type {
-	// Internal
-	TOK_ERROR = 0, TOK_EOF,
-	// Structural
-	TOK_OPEN_ROUND, TOK_CLOSE_ROUND,
-	TOK_COMMA, TOK_COLON, TOK_SEMICOLON,
-	// Operators
-	TOK_OP_ASSIGN, TOK_OP_PLUS, TOK_OP_MINUS,
-	TOK_OP_LESS_THAN, TOK_OP_GREATER_THAN,
-	// Keywords
-	TOK_KW_DO, TOK_KW_END, TOK_KW_RETURN,
-	TOK_KW_VAR, TOK_KW_IF, TOK_KW_WHILE,
-	TOK_KW_TRUE, TOK_KW_FALSE, TOK_KW_NIL,
-	TOK_KW_AND, TOK_KW_OR, TOK_KW_NOT,
-	// Base Types
-	TOK_TYPE_NAT, TOK_TYPE_INT, TOK_TYPE_BOOL,
-	// Others
-	TOK_IDENT, TOK_LIT_NUM
-} tok_type_t;
+	FOREACH_TOKEN(GENERATE_ENUM)
+} token_type_t;
+#undef GENERATE_ENUM
 
 typedef struct token {
-	tok_type_t type;
+	token_type_t type;
 	string_t content;
 } token_t;
 
