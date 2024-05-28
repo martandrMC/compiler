@@ -1,5 +1,6 @@
 #include "common/io.h"
 #include "lexer/lexer.h"
+#include "parser/parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,15 +18,8 @@ int main(int argc, char **argv) {
 		str_write(stdout, tok->content);
 		puts(")");
 	}
-	
-	puts("================");
-	lexer_backtrack(bt);
 
-	for(token_t *tok = lexer_next(); tok->type != TOK_EOF; tok = lexer_next()) {
-		printf("%s(", token_type_strs[tok->type]);
-		str_write(stdout, tok->content);
-		puts(")");
-	}
+	parser_parse();
 
 	exit(EXIT_SUCCESS);
 }

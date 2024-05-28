@@ -74,16 +74,63 @@ static token_t _read_token(void) {
 
 	// Handle symbols and symbol sequences
 	switch(current) {
-		case '+': RET(TOK_OP_PLUS, 1);
-		case '-': RET(TOK_OP_MINUS, 1);
-		case '=': RET(TOK_OP_ASSIGN, 1);
-		case '<': RET(TOK_OP_LESS_THAN, 1);
-		case '>': RET(TOK_OP_GREATER_THAN, 1);
 		case '(': RET(TOK_OPEN_ROUND, 1);
 		case ')': RET(TOK_CLOSE_ROUND, 1);
 		case ',': RET(TOK_COMMA, 1);
 		case ':': RET(TOK_COLON, 1);
 		case ';': RET(TOK_SEMICOLON, 1);
+		case '=': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_ASSIGN, 2);
+			}else RET(TOK_OP_EQUAL, 1);
+		}
+		case '+': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_PLUS_ASSIGN, 2);
+			}else RET(TOK_OP_PLUS, 1);
+		}
+		case '-': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_MINUS_ASSIGN, 2);
+			}else RET(TOK_OP_MINUS, 1);
+		}
+		case '*': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_MULT_ASSIGN, 2);
+			}else RET(TOK_OP_MULT, 1);
+		}
+		case '/': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_DIV_ASSIGN, 2);
+			}else RET(TOK_OP_DIV, 1);
+		}
+		case '%': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_MOD_ASSIGN, 2);
+			}else RET(TOK_OP_MOD, 1);
+		}
+		case '>': {
+			if(_get_char(false) == '=') {
+				_get_char(true);
+				RET(TOK_OP_GREATER_EQ, 2);
+			}else RET(TOK_OP_GREATER, 1);
+		}
+		case '<': {
+			char lookahead = _get_char(false);
+			if(lookahead == '=') {
+				_get_char(true);
+				RET(TOK_OP_LESS_EQ, 2);
+			}else if(lookahead == '>') {
+				_get_char(true);
+				RET(TOK_OP_DIFFERENT, 2);
+			} else RET(TOK_OP_LESS, 1);
+		}
 	}
 
 	if(isdigit(current)) {

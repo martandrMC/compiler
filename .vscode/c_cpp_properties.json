@@ -6,7 +6,8 @@
 			"includePath": [
 				"${workspaceFolder}/incl/",
 				"${workspaceFolder}/incl/common",
-				"${workspaceFolder}/incl/lexer"
+				"${workspaceFolder}/incl/lexer",
+				"${workspaceFolder}/incl/parser"
 			],
 			"defines": [],
 			"compilerPath": "/usr/bin/gcc",
