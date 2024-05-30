@@ -1,13 +1,6 @@
 #include "lexer.h"
 #include <stdint.h>
 
-/*
-	This is the self-include for lexer.c which holds the
-	constants for the keyword hash map. This header is not
-	meant to be included in other places, hence the lack of
-	a header guard. Use lexer.h directly.
-*/
-
 // Must be a power of two
 #define MAP_SIZE 16
 

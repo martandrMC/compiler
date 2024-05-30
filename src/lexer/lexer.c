@@ -1,4 +1,4 @@
-#include "lexer_self.h"
+#include "lexer.h"
 
 #include "common/io.h"
 #include "common/arena.h"
@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "hashmap.c"
 
 static struct lexer_state {
 	bool reinit;
@@ -62,7 +64,6 @@ static token_t _read_token(void) {
 				while(_get_char(true) != '\n');
 				current = _get_char(true);
 			} else if(lookahead == '*') {
-				_get_char(true);
 				do { while(_get_char(true) != '*'); }
 				while(_get_char(true) != '/');
 				current = _get_char(true);
@@ -83,50 +84,50 @@ static token_t _read_token(void) {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_ASSIGN, 2);
-			}else RET(TOK_OP_EQUAL, 1);
+			} else RET(TOK_OP_EQUAL, 1);
 		}
 		case '+': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_PLUS_ASSIGN, 2);
-			}else RET(TOK_OP_PLUS, 1);
+			} else RET(TOK_OP_PLUS, 1);
 		}
 		case '-': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_MINUS_ASSIGN, 2);
-			}else RET(TOK_OP_MINUS, 1);
+			} else RET(TOK_OP_MINUS, 1);
 		}
 		case '*': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_MULT_ASSIGN, 2);
-			}else RET(TOK_OP_MULT, 1);
+			} else RET(TOK_OP_MULT, 1);
 		}
 		case '/': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_DIV_ASSIGN, 2);
-			}else RET(TOK_OP_DIV, 1);
+			} else RET(TOK_OP_DIV, 1);
 		}
 		case '%': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_MOD_ASSIGN, 2);
-			}else RET(TOK_OP_MOD, 1);
+			} else RET(TOK_OP_MOD, 1);
 		}
 		case '>': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
 				RET(TOK_OP_GREATER_EQ, 2);
-			}else RET(TOK_OP_GREATER, 1);
+			} else RET(TOK_OP_GREATER, 1);
 		}
 		case '<': {
 			char lookahead = _get_char(false);
 			if(lookahead == '=') {
 				_get_char(true);
 				RET(TOK_OP_LESS_EQ, 2);
-			}else if(lookahead == '>') {
+			} else if(lookahead == '>') {
 				_get_char(true);
 				RET(TOK_OP_DIFFERENT, 2);
 			} else RET(TOK_OP_LESS, 1);
