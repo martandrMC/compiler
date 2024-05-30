@@ -16,8 +16,8 @@
 	FN(OP_EQUAL) FN(OP_DIFFERENT) FN(OP_GREATER) FN(OP_LESS) \
 	FN(OP_GREATER_EQ) FN(OP_LESS_EQ) \
 	/* Keywords */ \
-	FN(KW_DO) FN(KW_END) FN(KW_RETURN) \
-	FN(KW_VAR) FN(KW_IF) FN(KW_WHILE) \
+	FN(KW_DO) FN(KW_END) FN(KW_VAR) FN(KW_RETURN) \
+	FN(KW_IF) FN(KW_ELSE) FN(KW_WHILE) \
 	FN(KW_AND) FN(KW_OR) FN(KW_NOT) \
 	FN(KW_TRUE) FN(KW_FALSE) FN(KW_NIL) \
 	/* Base Types */ \
@@ -45,5 +45,6 @@ typedef struct token_list {
 void lexer_init(const char *file_path);
 void lexer_backtrack(token_t *next_ptr);
 token_t *lexer_next(void);
+token_t *lexer_peek(void);
 
 #endif // LEXER_H

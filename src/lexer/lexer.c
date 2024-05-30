@@ -199,10 +199,14 @@ token_t *lexer_next(void) {
 	if(ls.next_ptr == ls.last_ptr) {
 		ret = ls.last_ptr;
 		ls.last_ptr = _new_allocated_token();
-		ret->next = ls.last_ptr;
+		ret->next = ls.next_ptr = ls.last_ptr;
 	} else {
 		ret = ls.next_ptr;
 		ls.next_ptr = ls.next_ptr->next;
 	}
 	return &ret->token;
+}
+
+token_t *lexer_peek(void) {
+	return &ls.last_ptr->token;
 }
