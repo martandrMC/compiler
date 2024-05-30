@@ -5,7 +5,7 @@
 			"label": "Build (Debug)",
 			"type": "shell",
 			"command": "bash",
-			"args": ["${workspaceFolder}/.vscode/build.sh", "build", "debug"],
+			"args": ["${workspaceFolder}/build.sh", "build", "debug"],
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -19,7 +19,7 @@
 			"label": "Build (Release)",
 			"type": "shell",
 			"command": "bash",
-			"args": ["${workspaceFolder}/.vscode/build.sh", "build", "release"],
+			"args": ["${workspaceFolder}/build.sh", "build", "release"],
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -33,7 +33,7 @@
 			"label": "Clean",
 			"type": "shell",
 			"command": "bash",
-			"args": ["${workspaceFolder}/.vscode/build.sh", "clean"],
+			"args": ["${workspaceFolder}/build.sh", "clean"],
 			"group": {
 				"kind": "build",
 				"isDefault": true

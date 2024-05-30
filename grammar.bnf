@@ -34,8 +34,66 @@ STMT ::= if STMT_EXPR : STMT_EXPR IF_NEXT
 STMT ::= while STMT_EXPR : STMT_EXPR_END
 STMT ::= return STMT_EXPR_SEM
 
-IF_NEXT ::= else : STMT_EXPR_END
+IF_NEXT ::= else STMT_EXPR_END
 IF_NEXT ::= end
 
-// Expressions not final
-EXPR ::= id
+EXPR ::= PREC_0
+
+================================
+
+PREC_0 ::= PREC_1 PREC_0'
+PREC_0' ::= = PREC_1 PREC_0'
+PREC_0' ::= += PREC_1 PREC_0'
+PREC_0' ::= -= PREC_1 PREC_0'
+PREC_0' ::= *= PREC_1 PREC_0'
+PREC_0' ::= /= PREC_1 PREC_0'
+PREC_0' ::= %= PREC_1 PREC_0'
+PREC_0' ::= ''
+
+PREC_1 ::= PREC_2 PREC_1'
+PREC_1' ::= and PREC_2 PREC_1'
+PREC_1' ::= or PREC_2 PREC_1'
+PREC_1' ::= ''
+
+PREC_2 ::= UNARIES_2 PREC_3 PREC_2'
+PREC_2' ::= < PREC_3 PREC_2'
+PREC_2' ::= <= PREC_3 PREC_2'
+PREC_2' ::= > PREC_3 PREC_2'
+PREC_2' ::= >= PREC_3 PREC_2'
+PREC_2' ::= <> PREC_3 PREC_2'
+PREC_2' ::= == PREC_3 PREC_2'
+PREC_2' ::= ''
+
+UNARIES_2 ::= not
+UNARIES_2 ::= ''
+
+PREC_3 ::= PREC_4 PREC_3'
+PREC_3' ::= + PREC_4 PREC_3'
+PREC_3' ::= - PREC_4 PREC_3'
+PREC_3' ::= ''
+
+PREC_4 ::= PREC_5 PREC_4'
+PREC_4' ::= * PREC_5 PREC_4'
+PREC_4' ::= / PREC_5 PREC_4'
+PREC_4' ::= % PREC_5 PREC_4'
+PREC_4' ::= ''
+
+PREC_5 ::= UNARIES_5 TERM
+
+UNARIES_5 ::= +
+UNARIES_5 ::= -
+UNARIES_5 ::= ''
+
+TERM ::= ( PREC_0 )
+TERM ::= id TERM'
+TERM ::= num
+TERM ::= true
+TERM ::= false
+TERM ::= nil
+TERM' ::= ( FUNC )
+TERM' ::= ''
+
+FUNC ::= STMT_EXPR FUNC'
+FUNC ::= ''
+FUNC' ::= , STMT_EXPR FUNC'
+FUNC' ::= ''

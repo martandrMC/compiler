@@ -3,8 +3,8 @@
 function build {
 	case $1 in
 		# So far the minimum viable standard is C99
-		"release") GCC_ARGS="-Wall -Wextra -pedantic --std=c99 -O2" ;;
-		"debug") GCC_ARGS="-Wall -Wextra -pedantic --std=c99 -g" ;;
+		"release") GCC_ARGS="-Wall -Wextra -Werror -pedantic --std=c99 -O2" ;;
+		"debug") GCC_ARGS="-Wall -Wextra -Werror -pedantic --std=c99 -g" ;;
 	esac
 	build_rec 'src'
 	binfiles=$(find 'bin' -maxdepth 1 -mindepth 1 -type f -name "*.o")
