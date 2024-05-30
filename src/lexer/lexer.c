@@ -186,7 +186,7 @@ void lexer_init(const char *file_path) {
 	ls.input_ptr = 0;
 	ls.list = arena_new(64 * sizeof(token_list_t));
 	ls.last_ptr = _new_allocated_token();
-	ls.next_ptr = NULL;
+	ls.next_ptr = ls.last_ptr;
 }
 
 void lexer_backtrack(token_t *next_ptr) {
@@ -196,7 +196,7 @@ void lexer_backtrack(token_t *next_ptr) {
 
 token_t *lexer_next(void) {
 	token_list_t *ret;
-	if(ls.next_ptr == NULL) {
+	if(ls.next_ptr == ls.last_ptr) {
 		ret = ls.last_ptr;
 		ls.last_ptr = _new_allocated_token();
 		ret->next = ls.last_ptr;
