@@ -83,8 +83,8 @@ static token_t _read_token(void) {
 		case '=': {
 			if(_get_char(false) == '=') {
 				_get_char(true);
-				RET(TOK_OP_ASSIGN, 2);
-			} else RET(TOK_OP_EQUAL, 1);
+				RET(TOK_OP_EQUAL, 2);
+			} else RET(TOK_OP_ASSIGN, 1);
 		}
 		case '+': {
 			if(_get_char(false) == '=') {
