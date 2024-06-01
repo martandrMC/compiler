@@ -5,7 +5,7 @@
 			"type": "cppdbg",
 			"request": "launch",
 			"name": "Launch",
-			"preLaunchTask": "Build (Debug)",
+			"preLaunchTask": "Cleanbuild (Debug)",
 			"program": "${workspaceRoot}/bin/compiler",
 			"cwd": "${workspaceRoot}/",
 			"args": ["program.in"]

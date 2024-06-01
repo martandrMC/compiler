@@ -42,6 +42,16 @@
 				"reveal": "always",
 				"panel": "new"
 			}
+		},
+		{
+			"label": "Cleanbuild (Debug)",
+			"dependsOrder": "sequence",
+			"dependsOn": [ "Clean", "Build (Debug)" ]
+		},
+		{
+			"label": "Cleanbuild (Release)",
+			"dependsOrder": "sequence",
+			"dependsOn": [ "Clean", "Build (Release)" ]
 		}
 	]
 }

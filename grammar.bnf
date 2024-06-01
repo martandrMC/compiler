@@ -4,8 +4,8 @@
 
 // Start symbol expands to BLOCK EOF
 
-BLOCK ::= STMT_EXPR_SEM BLOCK
 BLOCK ::= var TYPE id VAR_INIT BLOCK
+BLOCK ::= STMT_EXPR_SEM BLOCK
 BLOCK ::= ''
 
 VAR_INIT ::= = VAR_INIT'

@@ -42,6 +42,7 @@ function build_rec {
 
 function clean {
 	[[ -d bin/ ]] && rm -r bin/
+	return 0
 }
 
 case $1 in
