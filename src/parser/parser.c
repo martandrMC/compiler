@@ -78,14 +78,15 @@ static void _nt_prec_1(void);
 static void _nt_prec_1_(void);
 static void _nt_prec_2(void);
 static void _nt_prec_2_(void);
-static void _nt_unaries_2(void);
+static bool _nt_unaries_2(void);
 static void _nt_prec_3(void);
 static void _nt_prec_3_(void);
 static void _nt_prec_4(void);
 static void _nt_prec_4_(void);
 static void _nt_prec_5(void);
-static void _nt_unaries_5(void);
+static bool _nt_unaries_5(void);
 static void _nt_term(void);
+static void _nt_term_(void);
 static void _nt_func(void);
 static void _nt_func_(void);
 
@@ -107,12 +108,10 @@ loop:
 			);
 			_nt_var_init();
 			goto loop;
-			break;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
 			_nt_stmt_expr_sem();
 			goto loop;
-			break;
 		case TOK_KW_END:
 		case TOK_EOF:
 			_log_tree(ACTION_EXIT);
@@ -124,7 +123,7 @@ loop:
 static void _nt_var_init(void) {
 	switch(PEEK) {
 		case TOK_OP_ASSIGN: CONSUME;
-			printf(" = ");
+			printf(" ASSIGN ");
 			_nt_var_init_();
 			break;
 		case TOK_COMMA:
@@ -147,6 +146,7 @@ static void _nt_var_init_(void) {
 			break;
 		case EXPR_FIRSTS:
 			_nt_prec_0();
+			printf("\n");
 			_nt_var_expr_next();
 			break;
 		default: _panic(CONSUME);
@@ -212,6 +212,7 @@ static void _nt_stmt_expr(void) {
 		case EXPR_FIRSTS:
 			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
+			printf("\n");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -226,6 +227,7 @@ static void _nt_stmt_expr_sem(void) {
 		case EXPR_FIRSTS:
 			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
+			printf("\n");
 			_expect(TOK_SEMICOLON);
 			break;
 		default: _panic(CONSUME);
@@ -241,6 +243,7 @@ static void _nt_stmt_expr_end(void) {
 		case EXPR_FIRSTS:
 			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
+			printf("\n");
 			_expect(TOK_KW_END);
 			break;
 		default: _panic(CONSUME);
@@ -294,42 +297,328 @@ static void _nt_if_next(void) {
 }
 
 static void _nt_prec_0(void) {
-	printf("EXPR\n");
-	_log_tree(ACTION_ENTER);
+	printf("[");
 	switch(PEEK) {
-		case TOK_IDENT: ; // C being C
-			token_t *id = CONSUME;
-			_log_tree(ACTION_PRINT, "%.*s\n",
-				id->content.size,
-				id->content.string
-			);
+		case TOK_KW_NOT:
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			_nt_prec_1();
+			_nt_prec_0_();
 			break;
 		default: _panic(CONSUME);
 	}
-	_log_tree(ACTION_EXIT);
+	printf("]");
 }
-static void _nt_prec_0_(void) {}
 
-static void _nt_prec_1(void) {}
-static void _nt_prec_1_(void) {}
+static void _nt_prec_0_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_OP_ASSIGN: CONSUME;
+			printf(" ");
+			_nt_prec_1();
+			printf(" =");
+			goto loop;
+		case TOK_OP_PLUS_ASSIGN: CONSUME;
+			printf(" ");
+			_nt_prec_1();
+			printf(" +=");
+			goto loop;
+		case TOK_OP_MINUS_ASSIGN: CONSUME;
+			printf(" ");
+			_nt_prec_1();
+			printf(" -=");
+			goto loop;
+		case TOK_OP_MULT_ASSIGN: CONSUME;
+			printf(" ");
+			_nt_prec_1();
+			printf(" *=");
+			goto loop;
+		case TOK_OP_DIV_ASSIGN: CONSUME;
+			printf(" ");
+			_nt_prec_1();
+			printf(" /=");
+			goto loop;
+		case TOK_OP_MOD_ASSIGN: CONSUME;
+			_nt_prec_1();
+			printf(" %%=");
+			goto loop;
+		case PREC_0_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
-static void _nt_prec_2(void) {}
-static void _nt_prec_2_(void) {}
-static void _nt_unaries_2(void) {}
+static void _nt_prec_1(void) {
+	switch(PEEK) {
+		case TOK_KW_NOT:
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			_nt_prec_2();
+			_nt_prec_1_();
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
-static void _nt_prec_3(void) {}
-static void _nt_prec_3_(void) {}
+static void _nt_prec_1_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_KW_AND: CONSUME;
+			printf(" ");
+			_nt_prec_2();
+			printf(" and");
+			goto loop;
+		case TOK_KW_OR: CONSUME;
+			printf(" ");
+			_nt_prec_2();
+			printf("or");
+			goto loop;
+		case PREC_1_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
-static void _nt_prec_4(void) {}
-static void _nt_prec_4_(void) {}
+static void _nt_prec_2(void) {
+	switch(PEEK) {
+		case TOK_KW_NOT:
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS: ;
+			bool found = _nt_unaries_2();
+			if(found) printf("(");
+			_nt_prec_3();
+			_nt_prec_2_();
+			if(found) printf(")");
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
-static void _nt_prec_5(void) {}
-static void _nt_unaries_5(void) {}
+static void _nt_prec_2_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_OP_LESS: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" <");
+			goto loop;
+		case TOK_OP_LESS_EQ: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" <=");
+			goto loop;
+		case TOK_OP_GREATER: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" >");
+			goto loop;
+		case TOK_OP_GREATER_EQ: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" >=");
+			goto loop;
+		case TOK_OP_DIFFERENT: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" <>");
+			goto loop;
+		case TOK_OP_EQUAL: CONSUME;
+			printf(" ");
+			_nt_prec_3();
+			printf(" ==");
+			goto loop;
+		case PREC_2_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
-static void _nt_term(void) {}
+static bool _nt_unaries_2(void) {
+	switch(PEEK) {
+		case TOK_KW_NOT: CONSUME;
+			printf("not");
+			return true;
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			return false;
+		default: _panic(CONSUME);
+	}
+	return false;
+}
 
-static void _nt_func(void) {}
-static void _nt_func_(void) {}
+static void _nt_prec_3(void) {
+	switch(PEEK) {
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			_nt_prec_4();
+			_nt_prec_3_();
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_prec_3_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_OP_PLUS: CONSUME;
+			printf(" ");
+			_nt_prec_4();
+			printf(" +");
+			goto loop;
+		case TOK_OP_MINUS: CONSUME;
+			printf(" ");
+			_nt_prec_4();
+			printf(" -");
+			goto loop;
+		case PREC_3_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_prec_4(void) {
+	switch(PEEK) {
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			_nt_prec_5();
+			_nt_prec_4_();
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_prec_4_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_OP_MULT: CONSUME;
+			printf(" ");
+			_nt_prec_5();
+			printf(" *");
+			goto loop;
+		case TOK_OP_DIV: CONSUME;
+			printf(" ");
+			_nt_prec_5();
+			printf(" /");
+			goto loop;
+		case TOK_OP_MOD: CONSUME;
+			printf(" ");
+			_nt_prec_5();
+			printf(" %%");
+			goto loop;
+		case PREC_4_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_prec_5(void) {
+	switch(PEEK) {
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS: ;
+			bool found = _nt_unaries_5();
+			if(found) printf("(");
+			_nt_term();
+			if(found) printf(")");
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static bool _nt_unaries_5(void) {
+	switch(PEEK) {
+		case TOK_OP_PLUS: CONSUME;
+			printf("+");
+			return true;
+		case TOK_OP_MINUS: CONSUME;
+			printf("-");
+			return true;
+		case TERM_FIRSTS:
+			return false;
+		default: _panic(CONSUME);
+	}
+	return false;
+}
+
+static void _nt_term(void) {
+	switch(PEEK) {
+		case TOK_OPEN_ROUND: CONSUME;
+			_nt_prec_0();
+			_expect(TOK_CLOSE_ROUND);
+			break;
+		case TOK_IDENT: ;
+			string_t id = CONSUME->content;
+			printf("%.*s",
+				(int) id.size,
+				id.string
+			);
+			_nt_term_();
+			break;
+		case TOK_LIT_NUM: ;
+			string_t num = CONSUME->content;
+			printf("%.*s",
+				(int) num.size,
+				num.string
+			);
+			break;
+		case TOK_KW_TRUE: CONSUME;
+			printf("`true`");
+			break;
+		case TOK_KW_FALSE: CONSUME;
+			printf("`false`");
+			break;
+		case TOK_KW_NIL: CONSUME;
+			printf("`nil`");
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_term_(void) {
+	switch(PEEK) {
+		case TOK_OPEN_ROUND: CONSUME;
+			_log_tree(ACTION_ENTER);
+			_nt_func();
+			_log_tree(ACTION_EXIT);
+			_expect(TOK_CLOSE_ROUND);
+			break;
+		case PREC_5_FOLLOWS:
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_func(void) {
+	switch(PEEK) {
+		case STMT_FIRSTS:
+		case EXPR_FIRSTS:
+			printf("\n");
+			_nt_stmt_expr();
+			_nt_func_();
+			break;
+		case TOK_CLOSE_ROUND:
+			break;
+		default: _panic(CONSUME);
+	}
+}
+
+static void _nt_func_(void) {
+loop:
+	switch(PEEK) {
+		case TOK_COMMA: CONSUME;
+			_nt_stmt_expr();
+			goto loop;
+		case TOK_CLOSE_ROUND:
+			break;
+		default: _panic(CONSUME);
+	}
+}
 
 // External Functions //
 
