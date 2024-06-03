@@ -107,6 +107,7 @@ loop:
 				id->content.string
 			);
 			_nt_var_init();
+			_log_tree(ACTION_EXIT);
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
