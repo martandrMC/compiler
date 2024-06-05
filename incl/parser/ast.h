@@ -4,15 +4,23 @@
 #include "common/io.h"
 
 typedef enum ast_node_type {
-	// TODO
+	AST_BLOCK, AST_CALL
 } ast_node_type_t;
 
 typedef struct ast_node {
 	ast_node_type_t type;
 	string_t content;
-	unsigned child_count;
-	unsigned child_capacity;
-	struct ast_node *children[];
+	union {
+		struct pair {
+			struct ast_node *left;
+			struct ast_node *right;
+		};
+		struct list {
+			size_t child_count;
+			size_t child_capacity;
+			struct ast_node *children[];
+		};
+	};
 } ast_node_t;
 
 #endif // AST_H
