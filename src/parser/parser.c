@@ -62,7 +62,6 @@ static token_t *_expect(token_type_t type) {
 
 static void _nt_block(void);
 static void _nt_var_init(void);
-static void _nt_var_init_(void);
 static void _nt_var_expr_next(void);
 static void _nt_var_stmt_next(void);
 static void _nt_type(void);
@@ -106,6 +105,7 @@ loop:
 				(int) id->content.size,
 				id->content.string
 			);
+			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
 			_log_tree(ACTION_EXIT);
 			goto loop;
@@ -122,24 +122,7 @@ loop:
 }
 
 static void _nt_var_init(void) {
-	switch(PEEK) {
-		case TOK_OP_ASSIGN: CONSUME;
-			printf(" ASSIGN ");
-			_nt_var_init_();
-			break;
-		case TOK_COMMA:
-		case TOK_KW_END:
-		case TOK_EOF:
-		case STMT_FIRSTS:
-		case EXPR_FIRSTS:
-			printf("\n");
-			_nt_var_stmt_next();
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_var_init_(void) {
+	printf(" ASSIGN ");
 	switch(PEEK) {
 		case STMT_FIRSTS:
 			_nt_stmt();
@@ -162,6 +145,7 @@ static void _nt_var_expr_next(void) {
 				(int) id->content.size,
 				id->content.string
 			);
+			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
 			break;
 		case TOK_SEMICOLON: CONSUME;
@@ -178,6 +162,7 @@ static void _nt_var_stmt_next(void) {
 				(int) id->content.size,
 				id->content.string
 			);
+			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
 			break;
 		case TOK_KW_END:
