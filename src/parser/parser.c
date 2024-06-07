@@ -1,5 +1,7 @@
 #include "parser.h"
 #include "lookaheads.h"
+#include "ast.h"
+
 #include "lexer/lexer.h"
 
 #include <stdio.h>
