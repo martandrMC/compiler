@@ -302,34 +302,15 @@ static void _nt_prec_0(void) {
 static void _nt_prec_0_(void) {
 loop:
 	switch(PEEK) {
-		case TOK_OP_ASSIGN: CONSUME;
+		case TOK_OP_ASSIGN:
+		case TOK_OP_ASSIGN_ALT: ;
+			string_t variant = CONSUME->content;
 			printf(" ");
 			_nt_prec_1();
-			printf(" =");
-			goto loop;
-		case TOK_OP_PLUS_ASSIGN: CONSUME;
-			printf(" ");
-			_nt_prec_1();
-			printf(" +=");
-			goto loop;
-		case TOK_OP_MINUS_ASSIGN: CONSUME;
-			printf(" ");
-			_nt_prec_1();
-			printf(" -=");
-			goto loop;
-		case TOK_OP_MULT_ASSIGN: CONSUME;
-			printf(" ");
-			_nt_prec_1();
-			printf(" *=");
-			goto loop;
-		case TOK_OP_DIV_ASSIGN: CONSUME;
-			printf(" ");
-			_nt_prec_1();
-			printf(" /=");
-			goto loop;
-		case TOK_OP_MOD_ASSIGN: CONSUME;
-			_nt_prec_1();
-			printf(" %%=");
+			printf(" %.*s",
+				(int) variant.size,
+				variant.string
+			);
 			goto loop;
 		case PREC_0_FOLLOWS:
 			break;
@@ -388,35 +369,14 @@ static void _nt_prec_2(void) {
 static void _nt_prec_2_(void) {
 loop:
 	switch(PEEK) {
-		case TOK_OP_LESS: CONSUME;
+		case TOK_OP_COMPARE: ;
+			string_t variant = CONSUME->content;
 			printf(" ");
 			_nt_prec_3();
-			printf(" <");
-			goto loop;
-		case TOK_OP_LESS_EQ: CONSUME;
-			printf(" ");
-			_nt_prec_3();
-			printf(" <=");
-			goto loop;
-		case TOK_OP_GREATER: CONSUME;
-			printf(" ");
-			_nt_prec_3();
-			printf(" >");
-			goto loop;
-		case TOK_OP_GREATER_EQ: CONSUME;
-			printf(" ");
-			_nt_prec_3();
-			printf(" >=");
-			goto loop;
-		case TOK_OP_DIFFERENT: CONSUME;
-			printf(" ");
-			_nt_prec_3();
-			printf(" <>");
-			goto loop;
-		case TOK_OP_EQUAL: CONSUME;
-			printf(" ");
-			_nt_prec_3();
-			printf(" ==");
+			printf(" %.*s",
+				(int) variant.size,
+				variant.string
+			);
 			goto loop;
 		case PREC_2_FOLLOWS:
 			break;

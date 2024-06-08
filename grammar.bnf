@@ -39,12 +39,15 @@ IF_NEXT ::= end
 
 PREC_0 ::= PREC_1 PREC_0'
 PREC_0' ::= = PREC_1 PREC_0'
-PREC_0' ::= += PREC_1 PREC_0'
-PREC_0' ::= -= PREC_1 PREC_0'
-PREC_0' ::= *= PREC_1 PREC_0'
-PREC_0' ::= /= PREC_1 PREC_0'
-PREC_0' ::= %= PREC_1 PREC_0'
+PREC_0' ::= ASSIGN_ALT PREC_1 PREC_0'
 PREC_0' ::= ''
+
+// The same token
+ASSIGN_ALT ::= +=
+ASSIGN_ALT ::= -=
+ASSIGN_ALT ::= *=
+ASSIGN_ALT ::= /=
+ASSIGN_ALT ::= %=
 
 PREC_1 ::= PREC_2 PREC_1'
 PREC_1' ::= and PREC_2 PREC_1'
@@ -52,13 +55,16 @@ PREC_1' ::= or PREC_2 PREC_1'
 PREC_1' ::= ''
 
 PREC_2 ::= UNARIES_2 PREC_3 PREC_2'
-PREC_2' ::= < PREC_3 PREC_2'
-PREC_2' ::= <= PREC_3 PREC_2'
-PREC_2' ::= > PREC_3 PREC_2'
-PREC_2' ::= >= PREC_3 PREC_2'
-PREC_2' ::= <> PREC_3 PREC_2'
-PREC_2' ::= == PREC_3 PREC_2'
+PREC_2' ::= COMPARE PREC_3 PREC_2'
 PREC_2' ::= ''
+
+// The same token
+COMPARE ::= <
+COMPARE ::= <=
+COMPARE ::= >
+COMPARE ::= >=
+COMPARE ::= <>
+COMPARE ::= ==
 
 UNARIES_2 ::= not
 UNARIES_2 ::= ''

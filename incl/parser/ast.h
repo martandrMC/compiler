@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "common/io.h"
+#include "common/arena.h"
 
 #define AST_FIRST_LIST_NODE AST_BLOCK
 

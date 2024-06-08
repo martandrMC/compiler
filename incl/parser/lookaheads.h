@@ -33,11 +33,6 @@
 
 #define PREC_1_FOLLOWS \
 	/*case*/ TOK_OP_ASSIGN: \
-	case TOK_OP_PLUS_ASSIGN: \
-	case TOK_OP_MINUS_ASSIGN: \
-	case TOK_OP_MULT_ASSIGN: \
-	case TOK_OP_DIV_ASSIGN: \
-	case TOK_OP_MOD_ASSIGN: \
 	case PREC_0_FOLLOWS//:
 
 #define PREC_2_FOLLOWS \
@@ -46,12 +41,7 @@
 	case PREC_1_FOLLOWS//:
 
 #define PREC_3_FOLLOWS \
-	/*case*/ TOK_OP_LESS: \
-	case TOK_OP_LESS_EQ: \
-	case TOK_OP_GREATER: \
-	case TOK_OP_GREATER_EQ: \
-	case TOK_OP_DIFFERENT: \
-	case TOK_OP_EQUAL: \
+	/*case*/ TOK_OP_COMPARE: \
 	case PREC_2_FOLLOWS//:
 
 #define PREC_4_FOLLOWS \
