@@ -33,6 +33,7 @@
 
 #define PREC_1_FOLLOWS \
 	/*case*/ TOK_OP_ASSIGN: \
+	case TOK_OP_ASSIGN_ALT: \
 	case PREC_0_FOLLOWS//:
 
 #define PREC_2_FOLLOWS \
