@@ -574,4 +574,13 @@ void parser_start(void) {
 	_log_tree(ACTION_PRINT, "");
 	_nt_block();
 	_expect(TOK_EOF);
+
+	// ast_t ast = ast_tree_new();
+	// ast_node_t *node1 = ast_lnode_new(&ast, 3, AST_BLOCK, (string_t){.size=0, .string=NULL});
+	// ast_lnode_add(&ast, node1, (ast_node_t *) 0xAAAAAAAAAAAAAAAA);
+	// ast_lnode_add(&ast, node1, (ast_node_t *) 0xBBBBBBBBBBBBBBBB);
+	// ast_lnode_add(&ast, node1, (ast_node_t *) 0xCCCCCCCCCCCCCCCC);
+	// ast_node_t *node2 = ast_pnode_new(&ast, AST_WHILE, (string_t){.size=0, .string=NULL});
+	// ast_pnode_left(node2, node1);
+	// ast_lnode_add(&ast, node1, (ast_node_t *) 0xDDDDDDDDDDDDDDDD); // Should fail
 }
