@@ -1,13 +1,13 @@
-#include "parser.h"
-#include "lookaheads.h"
 #include "ast.h"
+#include "lookaheads.h"
+#include "parser.h"
 
 #include "lexer/lexer.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 
 typedef enum se_variant {
 	STMT_EXPR,

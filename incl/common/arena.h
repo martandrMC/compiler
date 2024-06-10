@@ -68,9 +68,4 @@ void *arena_alloc(arena_t *arena, size_t block_size_bytes);
   */
 void arena_free(arena_t *arena);
 
-/** Clears the arena of all allocations but does not remove its regions.
-  * @param arena The arena to clear all allocations from.
-  */
-void arena_empty(arena_t *arena);
-
 #endif // _ARENA_H_

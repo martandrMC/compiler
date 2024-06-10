@@ -22,7 +22,7 @@ ast_node_t *ast_lnode_new(ast_t *tree, size_t capacity, ast_node_type_t type, st
 	node->type = type, node->content = content;
 	node->children.list.capacity = capacity;
 	node->children.list.count = 0; // redundant
-	memset(node->children.list.list, 0xFF, list_size_bytes); // redundant
+	memset(node->children.list.list, 0, list_size_bytes); // redundant
 	return node;
 }
 

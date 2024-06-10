@@ -1,8 +1,8 @@
 #ifndef IO_H
 #define IO_H
 
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 /** Combination of a preferably null-terminated character array and its
   * length in preferably character count. The string is referred to as
@@ -26,13 +26,6 @@ typedef struct string {
   * @return Returns a string struct with heap-allocated data if successful.
   */
 string_t str_read(FILE *fdesc);
-
-/** Attempts to write to the given file one character at a time
-  * the contents of the given string.
-  * @param fdesc The opened file descriptor to write to.
-  * @param str The string to write.
-  */
-void str_write(FILE *fdesc, string_t str);
 
 /** Prints the last error code with perror and exits with
   * EXIT_FAILURE if the given boolean is true.

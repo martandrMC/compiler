@@ -1,12 +1,11 @@
 #ifndef AST_H
 #define AST_H
 
-#include "common/io.h"
 #include "common/arena.h"
+#include "common/io.h"
 
 #define AST_FIRST_LIST_NODE AST_BLOCK
 
-// TODO
 typedef enum ast_node_type {
 	// Pair //
 	AST_RETURN, AST_WHILE, AST_IF_CASE,
@@ -15,8 +14,6 @@ typedef enum ast_node_type {
 	AST_BLOCK, AST_VAR, AST_IF_LIST, AST_CALL
 } ast_node_type_t;
 
-
-// UNTESTED
 #pragma GCC diagnostic push 
 #pragma GCC diagnostic ignored "-Wpedantic"
 typedef struct ast_node {

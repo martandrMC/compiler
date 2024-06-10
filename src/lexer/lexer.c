@@ -1,13 +1,13 @@
 #include "lexer.h"
 
-#include "common/io.h"
 #include "common/arena.h"
+#include "common/io.h"
 
 #include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "hashmap.c"
 

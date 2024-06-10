@@ -28,14 +28,6 @@ string_t str_read(FILE *fdesc) {
 	return result;
 }
 
-void str_write(FILE *fdesc, string_t str) {
-	for(size_t i=0; i<str.size; i++) {
-		char c = str.string[i];
-		if(c == '\0') break;
-		fputc(c, fdesc);
-	}
-}
-
 void error_if(bool error_condition) {
 	if(error_condition) {
 		perror(NULL);

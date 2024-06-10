@@ -1,8 +1,9 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "common/io.h"
 #include "tokens.h"
+
+#include "common/io.h"
 
 extern const char *token_type_strs[];
 typedef enum token_type {

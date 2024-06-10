@@ -1,4 +1,5 @@
 #include "lexer.h"
+
 #include <stdint.h>
 
 // Must be a power of two

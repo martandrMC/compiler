@@ -1,8 +1,8 @@
 #include "arena.h"
 #include "io.h"
 
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 
 // Internal Functions //
 
@@ -94,12 +94,4 @@ void arena_free(arena_t *arena) {
 	}
 	arena->first = NULL;
 	arena->last = NULL;
-}
-
-void arena_empty(arena_t *arena) {
-	for(
-		// iterate over all regions
-		region_t *curr = arena->first;
-		curr != NULL; curr = curr->next
-	) curr->used = 0;
 }
