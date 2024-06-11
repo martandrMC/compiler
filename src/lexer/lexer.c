@@ -46,6 +46,14 @@ static char _get_char(bool consume) {
 	return c;
 }
 
+static char _skip_until(char c) {
+	while(true) {
+		char next = _get_char(true);
+		if(next == c) return _get_char(true);
+		else if(next == '\0') return next;
+	}
+}
+
 static void _cleanup_lexer(void) {
 	free(ls.input.string);
 	arena_free(&ls.list);
@@ -57,20 +65,17 @@ static token_t _read_token(void) {
 	char current = _get_char(true);
 
 	// Skip whitespaces and comments
-	for(bool done = false; !done; ) {
+	while(true) {
 		if(current == '/') {
 			char lookahead = _get_char(false);
-			if(lookahead == '/') {
-				while(_get_char(true) != '\n');
+			if(lookahead == '/') current = _skip_until('\n');
+			else if(lookahead == '*') {
+				do current = _skip_until('*');
+				while(current != '/' && current != '\0');
 				current = _get_char(true);
-			} else if(lookahead == '*') {
-				do { while(_get_char(true) != '*'); }
-				while(_get_char(true) != '/');
-				current = _get_char(true);
-			} else done = true;
-		} else if(_is_white_space(current))
-			current = _get_char(true);
-		else done = true;
+			} else break;
+		} else if(_is_white_space(current)) current = _get_char(true);
+		else break;
 	}
 
 	// Handle symbols and symbol sequences
