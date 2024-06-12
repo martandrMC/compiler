@@ -8,8 +8,9 @@
 
 typedef enum ast_node_type {
 	// Pair //
-	AST_RETURN, AST_WHILE, AST_IF_CASE,
-	
+	AST_ERROR, AST_TYPE, AST_IDENT, AST_LITERAL, // Leaf Nodes
+	AST_OP_UNARY, AST_OP_BINARY, // Operators
+	AST_RETURN, AST_WHILE, AST_IF_CASE, // Statements
 	// List //
 	AST_BLOCK, AST_VAR, AST_IF_LIST, AST_CALL
 } ast_node_type_t;

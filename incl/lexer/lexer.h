@@ -24,5 +24,6 @@ void lexer_init(const char *file_path);
 void lexer_backtrack(token_t *next_ptr);
 token_t *lexer_next(void);
 token_t *lexer_peek(void);
+string_t lexer_get_src(void);
 
 #endif // LEXER_H

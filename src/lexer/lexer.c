@@ -216,3 +216,7 @@ token_t *lexer_next(void) {
 token_t *lexer_peek(void) {
 	return &ls.last_ptr->token;
 }
+
+string_t lexer_get_src(void) {
+	return ls.input;
+}

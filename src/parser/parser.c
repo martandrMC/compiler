@@ -47,10 +47,22 @@ static void _log_tree(log_action_t action, ...) {
 }
 
 static void _panic(token_t *problem) {
-	printf("\nErrant token encountered: \"%.*s\"\n",
+	size_t line = 1;
+	char *file_base = lexer_get_src().string;
+	char *problem_base = problem->content.string;
+	char *last_nl = file_base - 1;
+
+	for(
+		char *c = file_base;
+		c < problem->content.string; c++
+	) if(*c == '\n') line++, last_nl = c;
+
+	printf("\n[%lu:%lu] Errant token encountered: \"%.*s\"\n",
+		line, (uintptr_t) (problem_base - last_nl),
 		(int) problem->content.size,
-		problem->content.string
+		problem_base
 	);
+
 	exit(EXIT_FAILURE);
 }
 
