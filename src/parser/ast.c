@@ -27,8 +27,16 @@ ast_node_t *ast_lnode_new(ast_t *tree, size_t capacity, ast_node_type_t type, st
 }
 
 ast_node_t *ast_lnode_add(ast_t *tree, ast_node_t *parent, ast_node_t *child) {
-	(void) tree; // TODO: Realloc the parent when child list overflows
-	assert(parent->children.list.count < parent->children.list.capacity);
+	if(parent->children.list.count == parent->children.list.capacity) {
+		ast_node_t *resized = ast_lnode_new(
+			tree, parent->children.list.capacity * 2,
+			parent->type, parent->content
+		);
+		resized->children.list.count = parent->children.list.count;
+		for(size_t i=0; i<parent->children.list.count; i++)
+			resized->children.list.list[i] = parent->children.list.list[i];
+		parent = resized;
+	}
 
 	size_t child_idx = parent->children.list.count;
 	parent->children.list.list[child_idx] = child;
