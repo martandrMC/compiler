@@ -28,29 +28,39 @@ static struct parser_state {
 
 // Internal Functions (Helpers) //
 
-static void _panic(token_t *problem) {
+static void _panic_common(token_t *problem) {
 	size_t line = 1;
 	char *file_base = lexer_get_src().string;
 	char *problem_base = problem->content.string;
 	char *last_nl = file_base - 1;
 
-	for(
-		char *c = file_base;
-		c < problem->content.string; c++
-	) if(*c == '\n') line++, last_nl = c;
+	for(char *c = file_base; c < problem->content.string; c++)
+		if(*c == '\n') line++, last_nl = c;
 
-	printf("[%lu:%lu] Errant token encountered: \"%.*s\"\n",
-		line, (uintptr_t) (problem_base - last_nl),
-		(int) problem->content.size,
-		problem_base
-	);
+	printf("[%lu:%lu] Errant token encountered: ", line, (uintptr_t) (problem_base - last_nl));
+	if(problem->type == TOK_EOF) printf("EOF");
+	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
+}
 
+static void _panic(token_t *problem) {
+	_panic_common(problem);
+	putchar('\n');
+	exit(EXIT_FAILURE);
+}
+
+static void _panic_expect(token_t *problem, const char *message) {
+	_panic_common(problem);
+	printf(", expected: %s\n", message);
 	exit(EXIT_FAILURE);
 }
 
 static token_t *_expect(token_type_t type) {
 	token_t *next = CONSUME;
-	if(next->type != type) _panic(next);
+	if(next->type != type) {
+		_panic_common(next);
+		printf(", expected: %s\n", token_type_strs[type]);
+		exit(EXIT_FAILURE);
+	}
 	return next;
 }
 
@@ -104,7 +114,7 @@ loop:
 		case TOK_KW_END:
 		case TOK_EOF:
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\"var\", statement or expression");
 	}
 	return block;
 }
@@ -119,7 +129,7 @@ static void _nt_var_init(void) {
 			_nt_prec_0();
 			_nt_var_expr_next();
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "statement or expression");
 	}
 }
 
@@ -132,7 +142,7 @@ static void _nt_var_expr_next(void) {
 			break;
 		case TOK_SEMICOLON: CONSUME;
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\",\" or \";\"");
 	}
 }
 
@@ -145,10 +155,11 @@ static void _nt_var_stmt_next(void) {
 			break;
 		case TOK_KW_END:
 		case TOK_EOF:
+		case TOK_KW_VAR:
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\",\" or \"end\" or EOF or block member");
 	}
 }
 
@@ -160,7 +171,7 @@ static void _nt_type(void) {
 			break;
 		case TOK_TYPE_BOOL: CONSUME;
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\"nat\" or \"int\" or \"bool\"");
 	}
 }
 
