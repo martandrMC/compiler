@@ -2,6 +2,7 @@
 #include "lookaheads.h"
 #include "parser.h"
 
+#include "common/io.h"
 #include "lexer/lexer.h"
 
 #include <stdarg.h>
@@ -21,30 +22,11 @@ typedef enum log_action {
 	ACTION_EXIT
 } log_action_t;
 
-// Internal Functions (Helpers) //
+static struct parser_state {
+	ast_t ast;
+} ps;
 
-static void _log_tree(log_action_t action, ...) {
-	static unsigned nesting = 0;
-	va_list args;
-	switch(action) {
-		case ACTION_ENTER:
-			nesting++;
-			break;
-		case ACTION_EXIT:
-			if(nesting > 0)
-			nesting--;
-			break;
-		case ACTION_PRINT:
-			va_start(args, action);
-			const char *fmt = va_arg(args, char *);
-			for(unsigned i=0; i<nesting; i++) 
-				printf("│ ");
-			printf("├─");
-			vprintf(fmt, args);
-			va_end(args);
-			break;
-	}
-}
+// Internal Functions (Helpers) //
 
 static void _panic(token_t *problem) {
 	size_t line = 1;
@@ -57,7 +39,7 @@ static void _panic(token_t *problem) {
 		c < problem->content.string; c++
 	) if(*c == '\n') line++, last_nl = c;
 
-	printf("\n[%lu:%lu] Errant token encountered: \"%.*s\"\n",
+	printf("[%lu:%lu] Errant token encountered: \"%.*s\"\n",
 		line, (uintptr_t) (problem_base - last_nl),
 		(int) problem->content.size,
 		problem_base
@@ -74,7 +56,7 @@ static token_t *_expect(token_type_t type) {
 
 // Internal Function Decls (Non-Terminals) //
 
-static void _nt_block(void);
+static ast_node_t *_nt_block(void);
 static void _nt_var_init(void);
 static void _nt_var_expr_next(void);
 static void _nt_var_stmt_next(void);
@@ -105,23 +87,15 @@ static void _nt_func_(void);
 
 // Internal Functions Defs (Non-Terminals) //
 
-static void _nt_block(void) {
-	printf("BLOCK\n");
-	_log_tree(ACTION_ENTER);
+static ast_node_t *_nt_block(void) {
+	ast_node_t *block = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 loop:
 	switch(PEEK) {
 		case TOK_KW_VAR: CONSUME;
-			_log_tree(ACTION_PRINT, "VAR ");
 			_nt_type();
-			_log_tree(ACTION_ENTER);
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
+			_expect(TOK_IDENT);
 			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
-			_log_tree(ACTION_EXIT);
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
@@ -129,14 +103,13 @@ loop:
 			goto loop;
 		case TOK_KW_END:
 		case TOK_EOF:
-			_log_tree(ACTION_EXIT);
 			break;
 		default: _panic(CONSUME);
 	}
+	return block;
 }
 
 static void _nt_var_init(void) {
-	printf(" ASSIGN ");
 	switch(PEEK) {
 		case STMT_FIRSTS:
 			_nt_stmt();
@@ -144,7 +117,6 @@ static void _nt_var_init(void) {
 			break;
 		case EXPR_FIRSTS:
 			_nt_prec_0();
-			printf("\n");
 			_nt_var_expr_next();
 			break;
 		default: _panic(CONSUME);
@@ -154,11 +126,7 @@ static void _nt_var_init(void) {
 static void _nt_var_expr_next(void) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
+			_expect(TOK_IDENT);
 			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
 			break;
@@ -171,11 +139,7 @@ static void _nt_var_expr_next(void) {
 static void _nt_var_stmt_next(void) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
+			_expect(TOK_IDENT);
 			_expect(TOK_OP_ASSIGN);
 			_nt_var_init();
 			break;
@@ -191,13 +155,10 @@ static void _nt_var_stmt_next(void) {
 static void _nt_type(void) {
 	switch(PEEK) {
 		case TOK_TYPE_NAT: CONSUME;
-			printf("nat\n");
 			break;
 		case TOK_TYPE_INT: CONSUME;
-			printf("int\n");
 			break;
 		case TOK_TYPE_BOOL: CONSUME;
-			printf("bool\n");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -206,13 +167,10 @@ static void _nt_type(void) {
 static void _nt_stmt_expr(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_stmt();
 			break;
 		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
-			printf("\n");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -221,13 +179,10 @@ static void _nt_stmt_expr(void) {
 static void _nt_stmt_expr_sem(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_stmt();
 			break;
 		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
-			printf("\n");
 			_expect(TOK_SEMICOLON);
 			break;
 		default: _panic(CONSUME);
@@ -237,13 +192,10 @@ static void _nt_stmt_expr_sem(void) {
 static void _nt_stmt_expr_end(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_stmt();
 			break;
 		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
 			_nt_prec_0();
-			printf("\n");
 			_expect(TOK_KW_END);
 			break;
 		default: _panic(CONSUME);
@@ -257,37 +209,26 @@ static void _nt_stmt(void) {
 			_expect(TOK_KW_END);
 			break;
 		case TOK_KW_IF: CONSUME;
-			printf("IF\n");
-			_log_tree(ACTION_ENTER);
 			_nt_stmt_expr();
 			_expect(TOK_COLON);
 			_nt_stmt_expr();
 			_nt_if_next();
 			break;
 		case TOK_KW_WHILE: CONSUME;
-			printf("WHILE\n");
-			_log_tree(ACTION_ENTER);
 			_nt_stmt_expr();
 			_expect(TOK_COLON);
 			_nt_stmt_expr_end();
-			_log_tree(ACTION_EXIT);
 			break;
 		case TOK_KW_RETURN: CONSUME;
-			printf("RETURN\n");
-			_log_tree(ACTION_ENTER);
 			_nt_stmt_expr_sem();
-			_log_tree(ACTION_EXIT);
 			break;
 		default: _panic(CONSUME);
 	}
 }
 
 static void _nt_if_next(void) {
-	_log_tree(ACTION_EXIT);
 	switch(PEEK) {
 		case TOK_KW_ELSE: CONSUME;
-			_log_tree(ACTION_PRINT, "ELSE\n");
-			_log_tree(ACTION_ENTER);
 			_nt_stmt_expr_end();
 			break;
 		case TOK_KW_END: CONSUME;
@@ -297,7 +238,6 @@ static void _nt_if_next(void) {
 }
 
 static void _nt_prec_0(void) {
-	printf("[");
 	switch(PEEK) {
 		case TOK_KW_NOT:
 		case TOK_OP_PLUS:
@@ -308,21 +248,14 @@ static void _nt_prec_0(void) {
 			break;
 		default: _panic(CONSUME);
 	}
-	printf("]");
 }
 
 static void _nt_prec_0_(void) {
 loop:
 	switch(PEEK) {
 		case TOK_OP_ASSIGN:
-		case TOK_OP_ASSIGN_ALT: ;
-			string_t variant = CONSUME->content;
-			printf(" ");
+		case TOK_OP_ASSIGN_ALT: CONSUME;
 			_nt_prec_1();
-			printf(" %.*s",
-				(int) variant.size,
-				variant.string
-			);
 			goto loop;
 		case PREC_0_FOLLOWS:
 			break;
@@ -347,14 +280,10 @@ static void _nt_prec_1_(void) {
 loop:
 	switch(PEEK) {
 		case TOK_KW_AND: CONSUME;
-			printf(" ");
 			_nt_prec_2();
-			printf(" and");
 			goto loop;
 		case TOK_KW_OR: CONSUME;
-			printf(" ");
 			_nt_prec_2();
-			printf("or");
 			goto loop;
 		case PREC_1_FOLLOWS:
 			break;
@@ -368,11 +297,9 @@ static void _nt_prec_2(void) {
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS: ;
-			bool found = _nt_unaries_2();
-			if(found) printf("(");
+			_nt_unaries_2();
 			_nt_prec_3();
 			_nt_prec_2_();
-			if(found) printf(")");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -381,14 +308,8 @@ static void _nt_prec_2(void) {
 static void _nt_prec_2_(void) {
 loop:
 	switch(PEEK) {
-		case TOK_OP_COMPARE: ;
-			string_t variant = CONSUME->content;
-			printf(" ");
+		case TOK_OP_COMPARE: CONSUME;
 			_nt_prec_3();
-			printf(" %.*s",
-				(int) variant.size,
-				variant.string
-			);
 			goto loop;
 		case PREC_2_FOLLOWS:
 			break;
@@ -399,7 +320,6 @@ loop:
 static bool _nt_unaries_2(void) {
 	switch(PEEK) {
 		case TOK_KW_NOT: CONSUME;
-			printf("not");
 			return true;
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
@@ -426,14 +346,10 @@ static void _nt_prec_3_(void) {
 loop:
 	switch(PEEK) {
 		case TOK_OP_PLUS: CONSUME;
-			printf(" ");
 			_nt_prec_4();
-			printf(" +");
 			goto loop;
 		case TOK_OP_MINUS: CONSUME;
-			printf(" ");
 			_nt_prec_4();
-			printf(" -");
 			goto loop;
 		case PREC_3_FOLLOWS:
 			break;
@@ -457,19 +373,13 @@ static void _nt_prec_4_(void) {
 loop:
 	switch(PEEK) {
 		case TOK_OP_MULT: CONSUME;
-			printf(" ");
 			_nt_prec_5();
-			printf(" *");
 			goto loop;
 		case TOK_OP_DIV: CONSUME;
-			printf(" ");
 			_nt_prec_5();
-			printf(" /");
 			goto loop;
 		case TOK_OP_MOD: CONSUME;
-			printf(" ");
 			_nt_prec_5();
-			printf(" %%");
 			goto loop;
 		case PREC_4_FOLLOWS:
 			break;
@@ -482,10 +392,8 @@ static void _nt_prec_5(void) {
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS: ;
-			bool found = _nt_unaries_5();
-			if(found) printf("(");
+			_nt_unaries_5();
 			_nt_term();
-			if(found) printf(")");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -494,10 +402,8 @@ static void _nt_prec_5(void) {
 static bool _nt_unaries_5(void) {
 	switch(PEEK) {
 		case TOK_OP_PLUS: CONSUME;
-			printf("+");
 			return true;
 		case TOK_OP_MINUS: CONSUME;
-			printf("-");
 			return true;
 		case TERM_FIRSTS:
 			return false;
@@ -512,29 +418,16 @@ static void _nt_term(void) {
 			_nt_prec_0();
 			_expect(TOK_CLOSE_ROUND);
 			break;
-		case TOK_IDENT: ;
-			string_t id = CONSUME->content;
-			printf("%.*s",
-				(int) id.size,
-				id.string
-			);
+		case TOK_IDENT: CONSUME;
 			_nt_term_();
 			break;
-		case TOK_LIT_NUM: ;
-			string_t num = CONSUME->content;
-			printf("%.*s",
-				(int) num.size,
-				num.string
-			);
+		case TOK_LIT_NUM: CONSUME;
 			break;
 		case TOK_KW_TRUE: CONSUME;
-			printf("`true`");
 			break;
 		case TOK_KW_FALSE: CONSUME;
-			printf("`false`");
 			break;
 		case TOK_KW_NIL: CONSUME;
-			printf("`nil`");
 			break;
 		default: _panic(CONSUME);
 	}
@@ -543,9 +436,7 @@ static void _nt_term(void) {
 static void _nt_term_(void) {
 	switch(PEEK) {
 		case TOK_OPEN_ROUND: CONSUME;
-			_log_tree(ACTION_ENTER);
 			_nt_func();
-			_log_tree(ACTION_EXIT);
 			_expect(TOK_CLOSE_ROUND);
 			break;
 		case PREC_5_FOLLOWS:
@@ -558,7 +449,6 @@ static void _nt_func(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			printf("\n");
 			_nt_stmt_expr();
 			_nt_func_();
 			break;
@@ -583,16 +473,7 @@ loop:
 // External Functions //
 
 void parser_start(void) {
-	_log_tree(ACTION_PRINT, "");
+	ps.ast = ast_tree_new();
 	_nt_block();
 	_expect(TOK_EOF);
-
-	// ast_t ast = ast_tree_new();
-	// ast_node_t *node1 = ast_lnode_new(&ast, 3, AST_BLOCK, (string_t){.size=0, .string=NULL});
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xAAAAAAAAAAAAAAAA);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xBBBBBBBBBBBBBBBB);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xCCCCCCCCCCCCCCCC);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xDDDDDDDDDDDDDDDD);
-	// ast_node_t *node2 = ast_pnode_new(&ast, AST_WHILE, (string_t){.size=0, .string=NULL});
-	// ast_pnode_left(node2, node1);
 }
