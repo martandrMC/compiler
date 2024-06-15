@@ -11,16 +11,10 @@
 #include <string.h>
 
 typedef enum se_variant {
-	STMT_EXPR,
-	STMT_EXPR_SEM,
-	STMT_EXPR_END
+	OUTER_STMT_EXPR,
+	DELIM_STMT_EXPR,
+	INNER_STMT_EXPR,
 } se_variant_t;
-
-typedef enum log_action {
-	ACTION_PRINT,
-	ACTION_ENTER,
-	ACTION_EXIT
-} log_action_t;
 
 static struct parser_state {
 	ast_t ast;
@@ -67,19 +61,19 @@ static token_t *_expect(token_type_t type) {
 // Internal Function Decls (Non-Terminals) //
 
 static ast_node_t *_nt_block(void);
-static void _nt_var_init(void);
-static void _nt_var_expr_next(void);
-static void _nt_var_stmt_next(void);
-static void _nt_type(void);
-static void _nt_stmt_common(void);
-static void _nt_else(void);
-static void _nt_outer_stmt(void);
-static void _nt_inner_stmt(void);
-static void _nt_outer_stmt_expr(void);
-static void _nt_delim_stmt_expr(void);
-static void _nt_inner_stmt_expr(void);
+static ast_node_t *_nt_var_init(ast_node_t **parent);
+static ast_node_t *_nt_var_expr_next(ast_node_t **parent);
+static ast_node_t *_nt_var_stmt_next(ast_node_t **parent);
+static ast_node_t *_nt_type(void);
+static ast_node_t *_nt_stmt_common(void);
+static ast_node_t *_nt_else(void);
+static ast_node_t *_nt_outer_stmt(void);
+static ast_node_t *_nt_inner_stmt(void);
+static ast_node_t *_nt_outer_stmt_expr(void);
+static ast_node_t *_nt_delim_stmt_expr(void);
+static ast_node_t *_nt_inner_stmt_expr(void);
 
-static void _nt_prec_0(void);
+static ast_node_t *_nt_prec_0(void);
 static void _nt_prec_0_(void);
 static void _nt_prec_1(void);
 static void _nt_prec_1_(void);
@@ -103,11 +97,15 @@ static ast_node_t *_nt_block(void) {
 	ast_node_t *block = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 loop:
 	switch(PEEK) {
-		case TOK_KW_VAR: CONSUME;
-			_nt_type();
-			_expect(TOK_IDENT);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
+		case TOK_KW_VAR: ;
+			ast_node_t *vardecl = ast_lnode_new(&ps.ast, 4, AST_VAR, CONSUME->content);
+			vardecl = ast_lnode_add(&ps.ast, vardecl, _nt_type());
+			string_t ident_str = _expect(TOK_IDENT)->content;
+			string_t assign_str = _expect(TOK_OP_ASSIGN)->content;
+			ast_node_t *assign = ast_pnode_new(&ps.ast, AST_OP_BINARY, assign_str);
+			ast_pnode_left(assign, ast_pnode_new(&ps.ast, AST_IDENT, ident_str));
+			ast_pnode_right(assign, _nt_var_init(&vardecl));
+			block = ast_lnode_add(&ps.ast, block, vardecl);
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
@@ -122,39 +120,42 @@ loop:
 	return block;
 }
 
-static void _nt_var_init(void) {
+static ast_node_t *_nt_var_init(ast_node_t **parent) {
+	ast_node_t *value = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
 			_nt_outer_stmt();
-			_nt_var_stmt_next();
+			_nt_var_stmt_next(parent);
 			break;
 		case EXPR_FIRSTS:
 			_nt_prec_0();
-			_nt_var_expr_next();
+			_nt_var_expr_next(parent);
 			break;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
+	return value;
 }
 
-static void _nt_var_expr_next(void) {
+static ast_node_t *_nt_var_expr_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
 			_expect(TOK_IDENT);
 			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
+			_nt_var_init(parent);
 			break;
 		case TOK_SEMICOLON: CONSUME;
 			break;
 		default: _panic_expect(CONSUME, "\",\" or \";\"");
 	}
+	return NULL; // Placeholder
 }
 
-static void _nt_var_stmt_next(void) {
+static ast_node_t *_nt_var_stmt_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
 			_expect(TOK_IDENT);
 			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
+			_nt_var_init(parent);
 			break;
 		case TOK_KW_END:
 		case TOK_KW_ELSE:
@@ -165,21 +166,21 @@ static void _nt_var_stmt_next(void) {
 			break;
 		default: _panic_expect(CONSUME, "\",\" or \"end\" or EOF or block member");
 	}
+	return NULL; // Placeholder
 }
 
-static void _nt_type(void) {
+static ast_node_t *_nt_type(void) {
 	switch(PEEK) {
-		case TOK_TYPE_NAT: CONSUME;
-			break;
-		case TOK_TYPE_INT: CONSUME;
-			break;
-		case TOK_TYPE_BOOL: CONSUME;
-			break;
+		case TOK_TYPE_NAT:
+		case TOK_TYPE_INT:
+		case TOK_TYPE_BOOL:
+			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
 		default: _panic_expect(CONSUME, "\"nat\" or \"int\" or \"bool\"");
 	}
+	return NULL;
 }
 
-static void _nt_stmt_common(void) {
+static ast_node_t *_nt_stmt_common(void) {
 	switch(PEEK) {
 		case TOK_KW_IF: CONSUME;
 			_nt_delim_stmt_expr();
@@ -196,89 +197,86 @@ static void _nt_stmt_common(void) {
 			break;
 		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
 	}
+	return NULL; // Placeholder
 }
 
-static void _nt_else(void) {
+static ast_node_t *_nt_else(void) {
 	switch(PEEK) {
 		case TOK_KW_ELSE: CONSUME;
-			_nt_inner_stmt_expr();
-			break;
+			return _nt_inner_stmt_expr();
 		case TOK_KW_END:
 			break;
 		default: _panic_expect(CONSUME, "\"else\" or \"end\"");
 	}
+	return NULL;
 }
 
-static void _nt_outer_stmt(void) {
+static ast_node_t *_nt_outer_stmt(void) {
 	switch(PEEK) {
 		case TOK_KW_DO: CONSUME;
-			_nt_block();
+			ast_node_t *tmp = _nt_block();
 			_expect(TOK_KW_END);
-			break;
+			return tmp;
 		case TOK_KW_RETURN: CONSUME;
-			_nt_outer_stmt_expr();
-			break;
+			return _nt_outer_stmt_expr();
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
-			_nt_stmt_common();
-			break;
+			return _nt_stmt_common();
 		default: _panic_expect(CONSUME, "statement");
 	}
+	return NULL;
 }
 
-static void _nt_inner_stmt(void) {
+static ast_node_t *_nt_inner_stmt(void) {
 	switch(PEEK) {
 		case TOK_KW_DO: CONSUME;
-			_nt_block();
-			break;
+			return _nt_block();
 		case TOK_KW_RETURN: CONSUME;
-			_nt_inner_stmt_expr();
-			break;
+			return _nt_inner_stmt_expr();
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
-			_nt_stmt_common();
-			break;
+			return _nt_stmt_common();
 		default: _panic_expect(CONSUME, "statement");
 	}
+	return NULL;
 }
 
-static void _nt_outer_stmt_expr(void) {
+static ast_node_t *_nt_outer_stmt_expr(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_nt_outer_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_nt_prec_0();
+			return _nt_outer_stmt();
+		case EXPR_FIRSTS: ;
+			ast_node_t *tmp = _nt_prec_0();
 			_expect(TOK_SEMICOLON);
-			break;
+			return tmp;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
+	return NULL;
 }
 
-static void _nt_delim_stmt_expr(void) {
+static ast_node_t *_nt_delim_stmt_expr(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_nt_outer_stmt();
-			break;
+			return _nt_outer_stmt();
 		case EXPR_FIRSTS:
-			_nt_prec_0();
-			break;
+			return _nt_prec_0();
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
-}
-static void _nt_inner_stmt_expr(void) {
-	switch(PEEK) {
-		case STMT_FIRSTS:
-			_nt_inner_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_nt_prec_0();
-			break;
-		default: _panic_expect(CONSUME, "statement or expression");
-	}
+	return NULL;
 }
 
-static void _nt_prec_0(void) {
+static ast_node_t *_nt_inner_stmt_expr(void) {
+	switch(PEEK) {
+		case STMT_FIRSTS:
+			return _nt_inner_stmt();
+		case EXPR_FIRSTS:
+			return _nt_prec_0();
+		default: _panic_expect(CONSUME, "statement or expression");
+	}
+	return NULL;
+}
+
+static ast_node_t *_nt_prec_0(void) {
 	switch(PEEK) {
 		case TOK_KW_NOT:
 		case TOK_OP_PLUS:
@@ -289,6 +287,7 @@ static void _nt_prec_0(void) {
 			break;
 		default: _panic(CONSUME);
 	}
+	return NULL; // Placeholder
 }
 
 static void _nt_prec_0_(void) {
