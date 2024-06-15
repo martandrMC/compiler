@@ -71,11 +71,13 @@ static void _nt_var_init(void);
 static void _nt_var_expr_next(void);
 static void _nt_var_stmt_next(void);
 static void _nt_type(void);
-static void _nt_stmt_expr(void);
-static void _nt_stmt_expr_sem(void);
-static void _nt_stmt_expr_end(void);
-static void _nt_stmt(void);
-static void _nt_if_next(void);
+static void _nt_stmt_common(void);
+static void _nt_else(void);
+static void _nt_outer_stmt(void);
+static void _nt_inner_stmt(void);
+static void _nt_outer_stmt_expr(void);
+static void _nt_delim_stmt_expr(void);
+static void _nt_inner_stmt_expr(void);
 
 static void _nt_prec_0(void);
 static void _nt_prec_0_(void);
@@ -109,9 +111,10 @@ loop:
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			_nt_stmt_expr_sem();
+			_nt_outer_stmt_expr();
 			goto loop;
 		case TOK_KW_END:
+		case TOK_KW_ELSE:
 		case TOK_EOF:
 			break;
 		default: _panic_expect(CONSUME, "\"var\", statement or expression");
@@ -122,7 +125,7 @@ loop:
 static void _nt_var_init(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_nt_stmt();
+			_nt_outer_stmt();
 			_nt_var_stmt_next();
 			break;
 		case EXPR_FIRSTS:
@@ -154,6 +157,7 @@ static void _nt_var_stmt_next(void) {
 			_nt_var_init();
 			break;
 		case TOK_KW_END:
+		case TOK_KW_ELSE:
 		case TOK_EOF:
 		case TOK_KW_VAR:
 		case STMT_FIRSTS:
@@ -175,76 +179,102 @@ static void _nt_type(void) {
 	}
 }
 
-static void _nt_stmt_expr(void) {
+static void _nt_stmt_common(void) {
 	switch(PEEK) {
-		case STMT_FIRSTS:
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_nt_prec_0();
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_stmt_expr_sem(void) {
-	switch(PEEK) {
-		case STMT_FIRSTS:
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_nt_prec_0();
-			_expect(TOK_SEMICOLON);
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_stmt_expr_end(void) {
-	switch(PEEK) {
-		case STMT_FIRSTS:
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_nt_prec_0();
+		case TOK_KW_IF: CONSUME;
+			_nt_delim_stmt_expr();
+			_expect(TOK_COLON);
+			_nt_inner_stmt_expr();
+			_nt_else();
 			_expect(TOK_KW_END);
 			break;
-		default: _panic(CONSUME);
+		case TOK_KW_WHILE: CONSUME;
+			_nt_delim_stmt_expr();
+			_expect(TOK_COLON);
+			_nt_inner_stmt_expr();
+			_expect(TOK_KW_END);
+			break;
+		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
 	}
 }
 
-static void _nt_stmt(void) {
+static void _nt_else(void) {
+	switch(PEEK) {
+		case TOK_KW_ELSE: CONSUME;
+			_nt_inner_stmt_expr();
+			break;
+		case TOK_KW_END:
+			break;
+		default: _panic_expect(CONSUME, "\"else\" or \"end\"");
+	}
+}
+
+static void _nt_outer_stmt(void) {
 	switch(PEEK) {
 		case TOK_KW_DO: CONSUME;
 			_nt_block();
 			_expect(TOK_KW_END);
 			break;
-		case TOK_KW_IF: CONSUME;
-			_nt_stmt_expr();
-			_expect(TOK_COLON);
-			_nt_stmt_expr();
-			_nt_if_next();
-			break;
-		case TOK_KW_WHILE: CONSUME;
-			_nt_stmt_expr();
-			_expect(TOK_COLON);
-			_nt_stmt_expr_end();
-			break;
 		case TOK_KW_RETURN: CONSUME;
-			_nt_stmt_expr_sem();
+			_nt_outer_stmt_expr();
 			break;
-		default: _panic(CONSUME);
+		case TOK_KW_IF:
+		case TOK_KW_WHILE:
+			_nt_stmt_common();
+			break;
+		default: _panic_expect(CONSUME, "statement");
 	}
 }
 
-static void _nt_if_next(void) {
+static void _nt_inner_stmt(void) {
 	switch(PEEK) {
-		case TOK_KW_ELSE: CONSUME;
-			_nt_stmt_expr_end();
+		case TOK_KW_DO: CONSUME;
+			_nt_block();
 			break;
-		case TOK_KW_END: CONSUME;
+		case TOK_KW_RETURN: CONSUME;
+			_nt_inner_stmt_expr();
 			break;
-		default: _panic(CONSUME);
+		case TOK_KW_IF:
+		case TOK_KW_WHILE:
+			_nt_stmt_common();
+			break;
+		default: _panic_expect(CONSUME, "statement");
+	}
+}
+
+static void _nt_outer_stmt_expr(void) {
+	switch(PEEK) {
+		case STMT_FIRSTS:
+			_nt_outer_stmt();
+			break;
+		case EXPR_FIRSTS:
+			_nt_prec_0();
+			_expect(TOK_SEMICOLON);
+			break;
+		default: _panic_expect(CONSUME, "statement or expression");
+	}
+}
+
+static void _nt_delim_stmt_expr(void) {
+	switch(PEEK) {
+		case STMT_FIRSTS:
+			_nt_outer_stmt();
+			break;
+		case EXPR_FIRSTS:
+			_nt_prec_0();
+			break;
+		default: _panic_expect(CONSUME, "statement or expression");
+	}
+}
+static void _nt_inner_stmt_expr(void) {
+	switch(PEEK) {
+		case STMT_FIRSTS:
+			_nt_inner_stmt();
+			break;
+		case EXPR_FIRSTS:
+			_nt_prec_0();
+			break;
+		default: _panic_expect(CONSUME, "statement or expression");
 	}
 }
 
@@ -460,7 +490,7 @@ static void _nt_func(void) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			_nt_stmt_expr();
+			_nt_delim_stmt_expr();
 			_nt_func_();
 			break;
 		case TOK_CLOSE_ROUND:
@@ -473,7 +503,7 @@ static void _nt_func_(void) {
 loop:
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			_nt_stmt_expr();
+			_nt_delim_stmt_expr();
 			goto loop;
 		case TOK_CLOSE_ROUND:
 			break;
@@ -485,6 +515,13 @@ loop:
 
 void parser_start(void) {
 	ps.ast = ast_tree_new();
-	_nt_block();
-	_expect(TOK_EOF);
+	switch(PEEK) {
+		case TOK_KW_VAR:
+		case STMT_FIRSTS:
+		case EXPR_FIRSTS:
+			_nt_block();
+		case TOK_EOF:
+			break;
+		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
+	}
 }
