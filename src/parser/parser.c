@@ -91,6 +91,17 @@ static void _nt_term_(void);
 static void _nt_func(void);
 static void _nt_func_(void);
 
+// Internal Function Defs (Non-Terminal Helpers) //
+
+static void _nth_vardecl(ast_node_t **parent) {
+	string_t ident_str = _expect(TOK_IDENT)->content;
+	string_t assign_str = _expect(TOK_OP_ASSIGN)->content;
+	ast_node_t *assign = ast_pnode_new(&ps.ast, AST_OP_BINARY, assign_str);
+	*parent = ast_lnode_add(&ps.ast, *parent, assign);
+	ast_pnode_left(assign, ast_pnode_new(&ps.ast, AST_IDENT, ident_str));
+	ast_pnode_right(assign, _nt_var_init(parent));
+}
+
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *_nt_block(void) {
@@ -100,11 +111,7 @@ loop:
 		case TOK_KW_VAR: ;
 			ast_node_t *vardecl = ast_lnode_new(&ps.ast, 4, AST_VAR, CONSUME->content);
 			vardecl = ast_lnode_add(&ps.ast, vardecl, _nt_type());
-			string_t ident_str = _expect(TOK_IDENT)->content;
-			string_t assign_str = _expect(TOK_OP_ASSIGN)->content;
-			ast_node_t *assign = ast_pnode_new(&ps.ast, AST_OP_BINARY, assign_str);
-			ast_pnode_left(assign, ast_pnode_new(&ps.ast, AST_IDENT, ident_str));
-			ast_pnode_right(assign, _nt_var_init(&vardecl));
+			_nth_vardecl(&vardecl);
 			block = ast_lnode_add(&ps.ast, block, vardecl);
 			goto loop;
 		case STMT_FIRSTS:
@@ -124,11 +131,11 @@ static ast_node_t *_nt_var_init(ast_node_t **parent) {
 	ast_node_t *value = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_nt_outer_stmt();
+			value = _nt_outer_stmt();
 			_nt_var_stmt_next(parent);
 			break;
 		case EXPR_FIRSTS:
-			_nt_prec_0();
+			value = _nt_prec_0();
 			_nt_var_expr_next(parent);
 			break;
 		default: _panic_expect(CONSUME, "statement or expression");
@@ -139,9 +146,7 @@ static ast_node_t *_nt_var_init(ast_node_t **parent) {
 static ast_node_t *_nt_var_expr_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			_expect(TOK_IDENT);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init(parent);
+			_nth_vardecl(parent);
 			break;
 		case TOK_SEMICOLON: CONSUME;
 			break;
@@ -153,9 +158,7 @@ static ast_node_t *_nt_var_expr_next(ast_node_t **parent) {
 static ast_node_t *_nt_var_stmt_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			_expect(TOK_IDENT);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init(parent);
+			_nth_vardecl(parent);
 			break;
 		case TOK_KW_END:
 		case TOK_KW_ELSE:
@@ -520,6 +523,7 @@ void parser_start(void) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
 			root = _nt_block();
+			_expect(TOK_EOF);
 		case TOK_EOF:
 			break;
 		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
