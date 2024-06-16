@@ -514,13 +514,16 @@ loop:
 
 void parser_start(void) {
 	ps.ast = ast_tree_new();
+	ast_node_t *root = NULL;
 	switch(PEEK) {
 		case TOK_KW_VAR:
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			_nt_block();
+			root = _nt_block();
 		case TOK_EOF:
 			break;
 		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
 	}
+	if(root == NULL) printf("The file is empty.");
+	else ast_tree_visualize(root);
 }

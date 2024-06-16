@@ -5,6 +5,25 @@
 #include <assert.h>
 #include <string.h>
 
+static void _ast_tree_visualize(ast_node_t *root, unsigned depth) {
+	for(unsigned i=0; i<depth; i++) putchar(' ');
+	printf("%.*s\n", (int) root->content.size, root->content.string);
+	if(root->type < AST_FIRST_LIST_NODE) {
+		if(root->children.pair.left != NULL)
+			_ast_tree_visualize(root->children.pair.left, depth + 1);
+		if(root->children.pair.right != NULL)
+			_ast_tree_visualize(root->children.pair.right, depth + 1);
+	} else for(size_t i=0; i<root->children.list.count; i++) {
+		ast_node_t *child = root->children.list.list[i];
+		if(child == NULL) continue;
+		_ast_tree_visualize(child, depth + 1);
+	}
+}
+
+// External Functions //
+
+void ast_tree_visualize(ast_node_t *root) { _ast_tree_visualize(root, 0); }
+
 ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type, string_t content) {
 	assert(type < AST_FIRST_LIST_NODE);
 	ast_node_t *node = (ast_node_t *) arena_alloc(tree, sizeof(ast_node_t));

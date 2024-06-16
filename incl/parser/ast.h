@@ -36,6 +36,7 @@ typedef struct ast_node {
 
 typedef arena_t ast_t;
 #define ast_tree_new() (arena_new(64 * sizeof(ast_node_t)))
+void ast_tree_visualize(ast_node_t *root);
 
 ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type,string_t content);
 #define ast_pnode_left(parent,child) (parent->children.pair.left = child)
