@@ -530,4 +530,5 @@ void parser_start(void) {
 	}
 	if(root == NULL) printf("The file is empty.");
 	else ast_tree_visualize(root);
+	ast_tree_free(&ps.ast);
 }
