@@ -116,7 +116,7 @@ loop:
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			_nt_outer_stmt_expr();
+			ast_lnode_add(&ps.ast, block, _nt_outer_stmt_expr());
 			goto loop;
 		case TOK_KW_END:
 		case TOK_KW_ELSE:
@@ -182,23 +182,26 @@ static ast_node_t *_nt_type(void) {
 }
 
 static ast_node_t *_nt_stmt_common(void) {
+	ast_node_t *stmt = NULL;
 	switch(PEEK) {
-		case TOK_KW_IF: CONSUME;
-			_nt_delim_stmt_expr();
+		case TOK_KW_IF:
+			stmt = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+			ast_pnode_left(stmt, _nt_delim_stmt_expr());
 			_expect(TOK_COLON);
-			_nt_inner_stmt_expr();
+			ast_pnode_right(stmt, _nt_inner_stmt_expr());
 			_nt_else();
 			_expect(TOK_KW_END);
 			break;
-		case TOK_KW_WHILE: CONSUME;
-			_nt_delim_stmt_expr();
+		case TOK_KW_WHILE:
+			stmt = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
+			ast_pnode_left(stmt, _nt_delim_stmt_expr());
 			_expect(TOK_COLON);
-			_nt_inner_stmt_expr();
+			ast_pnode_right(stmt, _nt_inner_stmt_expr());
 			_expect(TOK_KW_END);
 			break;
 		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
 	}
-	return NULL; // Placeholder
+	return stmt;
 }
 
 static ast_node_t *_nt_else(void) {
@@ -213,33 +216,45 @@ static ast_node_t *_nt_else(void) {
 }
 
 static ast_node_t *_nt_outer_stmt(void) {
+	ast_node_t *stmt = NULL;
 	switch(PEEK) {
-		case TOK_KW_DO: CONSUME;
-			ast_node_t *tmp = _nt_block();
+		case TOK_KW_DO: ;
+			string_t content = CONSUME->content;
+			stmt = _nt_block();
+			stmt->content = content;
 			_expect(TOK_KW_END);
-			return tmp;
-		case TOK_KW_RETURN: CONSUME;
-			return _nt_outer_stmt_expr();
+			break;
+		case TOK_KW_RETURN:
+			stmt = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(stmt, _nt_outer_stmt_expr());
+			break;
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
 			return _nt_stmt_common();
 		default: _panic_expect(CONSUME, "statement");
 	}
-	return NULL;
+	return stmt;
 }
 
 static ast_node_t *_nt_inner_stmt(void) {
+	ast_node_t *stmt = NULL;
 	switch(PEEK) {
-		case TOK_KW_DO: CONSUME;
-			return _nt_block();
-		case TOK_KW_RETURN: CONSUME;
-			return _nt_inner_stmt_expr();
+		case TOK_KW_DO: ;
+			string_t content = CONSUME->content;
+			stmt = _nt_block();
+			stmt->content = content;
+			break;
+		case TOK_KW_RETURN: ;
+			stmt = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(stmt, _nt_inner_stmt_expr());
+			break;
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
-			return _nt_stmt_common();
+			stmt = _nt_stmt_common();
+			break;
 		default: _panic_expect(CONSUME, "statement");
 	}
-	return NULL;
+	return stmt;
 }
 
 static ast_node_t *_nt_outer_stmt_expr(void) {
