@@ -9,8 +9,14 @@
 #define BOX_CHAR_SIZE 4
 static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix, bool last) {
 	for(size_t i=0; i<depth; i+=4) printf("\x1b[0;32m%.*s ", BOX_CHAR_SIZE, &prefix->string[i]);
-	memcpy(&prefix->string[depth - BOX_CHAR_SIZE], last ? "⠀" : "│", BOX_CHAR_SIZE); // U+2800
-	
+	if(depth > 0) {
+		char *parent_prefix = &prefix->string[depth - BOX_CHAR_SIZE];
+		// Note: This whitespace-looking character is actually U+2800
+		// also known as Braille Pattern Blank. Can't use a normal space
+		// because all of the prefix characters have to be the same size.
+		memcpy(parent_prefix, last ? "⠀" : "│", BOX_CHAR_SIZE);
+	}
+
 	printf("\x1b[33m");
 	if(root->type == AST_BLOCK) printf("BLOCK\n");
 	else printf("%.*s\n", (int) root->content.size, root->content.string);

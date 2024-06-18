@@ -62,8 +62,8 @@ static token_t *_expect(token_type_t type) {
 
 static ast_node_t *_nt_block(void);
 static ast_node_t *_nt_var_init(ast_node_t **parent);
-static ast_node_t *_nt_var_expr_next(ast_node_t **parent);
-static ast_node_t *_nt_var_stmt_next(ast_node_t **parent);
+static void _nt_var_expr_next(ast_node_t **parent);
+static void _nt_var_stmt_next(ast_node_t **parent);
 static ast_node_t *_nt_type(void);
 static ast_node_t *_nt_stmt_common(void);
 static ast_node_t *_nt_else(void);
@@ -143,7 +143,7 @@ static ast_node_t *_nt_var_init(ast_node_t **parent) {
 	return value;
 }
 
-static ast_node_t *_nt_var_expr_next(ast_node_t **parent) {
+static void _nt_var_expr_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
 			_nth_vardecl(parent);
@@ -152,10 +152,9 @@ static ast_node_t *_nt_var_expr_next(ast_node_t **parent) {
 			break;
 		default: _panic_expect(CONSUME, "\",\" or \";\"");
 	}
-	return NULL; // Placeholder
 }
 
-static ast_node_t *_nt_var_stmt_next(ast_node_t **parent) {
+static void _nt_var_stmt_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
 			_nth_vardecl(parent);
@@ -169,7 +168,6 @@ static ast_node_t *_nt_var_stmt_next(ast_node_t **parent) {
 			break;
 		default: _panic_expect(CONSUME, "\",\" or \"end\" or EOF or block member");
 	}
-	return NULL; // Placeholder
 }
 
 static ast_node_t *_nt_type(void) {
@@ -290,7 +288,7 @@ static ast_node_t *_nt_prec_0(void) {
 			break;
 		default: _panic(CONSUME);
 	}
-	return NULL; // Placeholder
+	return ast_pnode_new(&ps.ast, AST_IDENT, (string_t){.size=5,.string="IDENT"}); // Placeholder
 }
 
 static void _nt_prec_0_(void) {
@@ -528,7 +526,7 @@ void parser_start(void) {
 			break;
 		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
 	}
-	if(root == NULL) printf("The file is empty.");
+	if(root == NULL) printf("The file is empty.\n");
 	else ast_tree_visualize(root);
 	ast_tree_free(&ps.ast);
 }
