@@ -119,6 +119,7 @@ loop:
 			ast_lnode_add(&ps.ast, block, _nt_outer_stmt_expr());
 			goto loop;
 		case TOK_KW_END:
+		case TOK_KW_ELIF:
 		case TOK_KW_ELSE:
 		case TOK_EOF:
 			break;
@@ -160,6 +161,7 @@ static void _nt_var_stmt_next(ast_node_t **parent) {
 			_nth_vardecl(parent);
 			break;
 		case TOK_KW_END:
+		case TOK_KW_ELIF:
 		case TOK_KW_ELSE:
 		case TOK_EOF:
 		case TOK_KW_VAR:
@@ -206,6 +208,12 @@ static ast_node_t *_nt_stmt_common(void) {
 
 static ast_node_t *_nt_else(void) {
 	switch(PEEK) {
+		case TOK_KW_ELIF: CONSUME;
+			_nt_delim_stmt_expr();
+			_expect(TOK_COLON);
+			_nt_inner_stmt_expr();
+			_nt_else();
+			break;
 		case TOK_KW_ELSE: CONSUME;
 			return _nt_inner_stmt_expr();
 		case TOK_KW_END:
