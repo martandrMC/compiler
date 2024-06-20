@@ -18,8 +18,20 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 	}
 
 	printf("\x1b[33m");
-	if(root->type == AST_BLOCK) printf("BLOCK\n");
-	else printf("%.*s\n", (int) root->content.size, root->content.string);
+	switch(root->type) {
+		case AST_BLOCK:
+			printf("BLOCK\n");
+			break;
+		case AST_IF_LIST:
+			printf("IFLIST\n");
+			break;
+		default:
+			printf(
+				"%.*s\n",
+				(int) root->content.size,
+				root->content.string
+			);
+	}
 
 	if(depth >= prefix->size) {
 		char *new_buffer = (char *) realloc(prefix->string, prefix->size * 2);

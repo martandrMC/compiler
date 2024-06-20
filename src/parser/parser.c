@@ -28,7 +28,7 @@ static void _panic_common(token_t *problem) {
 	char *problem_base = problem->content.string;
 	char *last_nl = file_base - 1;
 
-	for(char *c = file_base; c < problem->content.string; c++)
+	for(char *c = file_base; c < problem_base; c++)
 		if(*c == '\n') line++, last_nl = c;
 
 	printf("[%lu:%lu] Errant token encountered: ", line, (uintptr_t) (problem_base - last_nl));
@@ -66,7 +66,7 @@ static void _nt_var_expr_next(ast_node_t **parent);
 static void _nt_var_stmt_next(ast_node_t **parent);
 static ast_node_t *_nt_type(void);
 static ast_node_t *_nt_stmt_common(void);
-static ast_node_t *_nt_else(void);
+static void _nt_else(ast_node_t **parent);
 static ast_node_t *_nt_outer_stmt(void);
 static ast_node_t *_nt_inner_stmt(void);
 static ast_node_t *_nt_outer_stmt_expr(void);
@@ -105,18 +105,18 @@ static void _nth_vardecl(ast_node_t **parent) {
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *_nt_block(void) {
-	ast_node_t *block = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
+	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 loop:
 	switch(PEEK) {
 		case TOK_KW_VAR: ;
 			ast_node_t *vardecl = ast_lnode_new(&ps.ast, 4, AST_VAR, CONSUME->content);
 			vardecl = ast_lnode_add(&ps.ast, vardecl, _nt_type());
 			_nth_vardecl(&vardecl);
-			block = ast_lnode_add(&ps.ast, block, vardecl);
+			node = ast_lnode_add(&ps.ast, node, vardecl);
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			ast_lnode_add(&ps.ast, block, _nt_outer_stmt_expr());
+			node = ast_lnode_add(&ps.ast, node, _nt_outer_stmt_expr());
 			goto loop;
 		case TOK_KW_END:
 		case TOK_KW_ELIF:
@@ -125,23 +125,23 @@ loop:
 			break;
 		default: _panic_expect(CONSUME, "\"var\", statement or expression");
 	}
-	return block;
+	return node;
 }
 
 static ast_node_t *_nt_var_init(ast_node_t **parent) {
-	ast_node_t *value = NULL;
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			value = _nt_outer_stmt();
+			node = _nt_outer_stmt();
 			_nt_var_stmt_next(parent);
 			break;
 		case EXPR_FIRSTS:
-			value = _nt_prec_0();
+			node = _nt_prec_0();
 			_nt_var_expr_next(parent);
 			break;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
-	return value;
+	return node;
 }
 
 static void _nt_var_expr_next(ast_node_t **parent) {
@@ -184,120 +184,139 @@ static ast_node_t *_nt_type(void) {
 }
 
 static ast_node_t *_nt_stmt_common(void) {
-	ast_node_t *stmt = NULL;
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_KW_IF:
-			stmt = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
-			ast_pnode_left(stmt, _nt_delim_stmt_expr());
+		case TOK_KW_IF: ;
+			ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+			ast_pnode_left(branch, _nt_delim_stmt_expr());
 			_expect(TOK_COLON);
-			ast_pnode_right(stmt, _nt_inner_stmt_expr());
-			_nt_else();
+			ast_pnode_right(branch, _nt_inner_stmt_expr());
+			node = ast_lnode_new(&ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
+			node = ast_lnode_add(&ps.ast, node, branch);
+			_nt_else(&node);
 			_expect(TOK_KW_END);
 			break;
 		case TOK_KW_WHILE:
-			stmt = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
-			ast_pnode_left(stmt, _nt_delim_stmt_expr());
+			node = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
+			ast_pnode_left(node, _nt_delim_stmt_expr());
 			_expect(TOK_COLON);
-			ast_pnode_right(stmt, _nt_inner_stmt_expr());
+			ast_pnode_right(node, _nt_inner_stmt_expr());
 			_expect(TOK_KW_END);
 			break;
 		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
 	}
-	return stmt;
+	return node;
 }
 
-static ast_node_t *_nt_else(void) {
+static void _nt_else(ast_node_t **parent) {
+	ast_node_t * branch = NULL;
+loop:
 	switch(PEEK) {
-		case TOK_KW_ELIF: CONSUME;
-			_nt_delim_stmt_expr();
+		case TOK_KW_ELIF: ;
+			branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+			ast_pnode_left(branch, _nt_delim_stmt_expr());
 			_expect(TOK_COLON);
-			_nt_inner_stmt_expr();
-			_nt_else();
+			ast_pnode_right(branch, _nt_inner_stmt_expr());
+			*parent = ast_lnode_add(&ps.ast, *parent, branch);
+			goto loop;
+		case TOK_KW_ELSE: ;
+			branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+			ast_pnode_left(branch, NULL);
+			ast_pnode_right(branch, _nt_inner_stmt_expr());
+			*parent = ast_lnode_add(&ps.ast, *parent, branch);
 			break;
-		case TOK_KW_ELSE: CONSUME;
-			return _nt_inner_stmt_expr();
 		case TOK_KW_END:
 			break;
 		default: _panic_expect(CONSUME, "\"else\" or \"end\"");
 	}
-	return NULL;
 }
 
 static ast_node_t *_nt_outer_stmt(void) {
-	ast_node_t *stmt = NULL;
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_KW_DO: ;
 			string_t content = CONSUME->content;
-			stmt = _nt_block();
-			stmt->content = content;
+			node = _nt_block();
+			node->content = content;
 			_expect(TOK_KW_END);
 			break;
 		case TOK_KW_RETURN:
-			stmt = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
-			ast_pnode_left(stmt, _nt_outer_stmt_expr());
+			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(node, _nt_outer_stmt_expr());
+			ast_pnode_right(node, NULL);
 			break;
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
-			return _nt_stmt_common();
+			node = _nt_stmt_common();
+			break;
 		default: _panic_expect(CONSUME, "statement");
 	}
-	return stmt;
+	return node;
 }
 
 static ast_node_t *_nt_inner_stmt(void) {
-	ast_node_t *stmt = NULL;
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_KW_DO: ;
 			string_t content = CONSUME->content;
-			stmt = _nt_block();
-			stmt->content = content;
+			node = _nt_block();
+			node->content = content;
 			break;
-		case TOK_KW_RETURN: ;
-			stmt = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
-			ast_pnode_left(stmt, _nt_inner_stmt_expr());
+		case TOK_KW_RETURN:
+			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(node, _nt_inner_stmt_expr());
+			ast_pnode_right(node, NULL);
 			break;
 		case TOK_KW_IF:
 		case TOK_KW_WHILE:
-			stmt = _nt_stmt_common();
+			node = _nt_stmt_common();
 			break;
 		default: _panic_expect(CONSUME, "statement");
 	}
-	return stmt;
+	return node;
 }
 
 static ast_node_t *_nt_outer_stmt_expr(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			return _nt_outer_stmt();
+			node = _nt_outer_stmt();
+			break;
 		case EXPR_FIRSTS: ;
-			ast_node_t *tmp = _nt_prec_0();
+			node = _nt_prec_0();
 			_expect(TOK_SEMICOLON);
-			return tmp;
+			break;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
-	return NULL;
+	return node;
 }
 
 static ast_node_t *_nt_delim_stmt_expr(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			return _nt_outer_stmt();
+			node = _nt_outer_stmt();
+			break;
 		case EXPR_FIRSTS:
-			return _nt_prec_0();
+			node = _nt_prec_0();
+			break;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
-	return NULL;
+	return node;
 }
 
 static ast_node_t *_nt_inner_stmt_expr(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			return _nt_inner_stmt();
+			node = _nt_inner_stmt();
+			break;
 		case EXPR_FIRSTS:
-			return _nt_prec_0();
+			node = _nt_prec_0();
+			break;
 		default: _panic_expect(CONSUME, "statement or expression");
 	}
-	return NULL;
+	return node;
 }
 
 static ast_node_t *_nt_prec_0(void) {
@@ -311,7 +330,7 @@ static ast_node_t *_nt_prec_0(void) {
 			break;
 		default: _panic(CONSUME);
 	}
-	return ast_pnode_new(&ps.ast, AST_IDENT, (string_t){.size=5,.string="IDENT"}); // Placeholder
+	return ast_pnode_new(&ps.ast, AST_IDENT, (string_t){.size=5,.string="EXPR"}); // Placeholder
 }
 
 static void _nt_prec_0_(void) {
