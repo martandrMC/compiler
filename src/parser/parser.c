@@ -79,7 +79,6 @@ static ast_node_t *_nt_prec_4(void);
 static ast_node_t *_nt_prec_5(void);
 static ast_node_t *_nt_unaries_5(void);
 static ast_node_t *_nt_term(void);
-static ast_node_t *_nt_term_(ast_node_t *child);
 static ast_node_t *_nt_func(ast_node_t *child);
 
 // Internal Function Defs (Non-Terminal Helpers) //
@@ -278,22 +277,33 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 }
 
 static ast_node_t *_nt_prec_0(void) {
-	ast_node_t *node = NULL;
+	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_INTERNAL, EMPTY_STRING);
 	switch(PEEK) {
 		case TOK_KW_NOT:
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			node = _nt_prec_1();
+		case TERM_FIRSTS: ;
+			node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
 			loop: switch(PEEK) { // BEGIN _nt_prec_0_()
 				case TOK_OP_ASSIGN:
-				case TOK_OP_ASSIGN_ALT: CONSUME;
-					_nt_prec_1();
+				case TOK_OP_ASSIGN_ALT: ;
+					ast_node_t *operator = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					node = ast_lnode_add(&ps.ast, node, operator);
+					node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
 					goto loop;
 				case PREC_0_FOLLOWS:
 					break;
 				default: _panic(CONSUME);
 			} // END _nt_prec_0_()
+			for(size_t i = node->children.list.count - 1; i > 1; i -= 2) {
+				ast_node_t **left = &node->children.list.list[i - 2];
+				ast_node_t *parent = node->children.list.list[i - 1];
+				ast_node_t *right = node->children.list.list[i];
+				ast_pnode_left(parent, *left);
+				ast_pnode_right(parent, right);
+				*left = parent;
+			}
+			node = node->children.list.list[0];
 			break;
 		default: _panic(CONSUME);
 	}
@@ -309,11 +319,12 @@ static ast_node_t *_nt_prec_1(void) {
 		case TERM_FIRSTS:
 			node = _nt_prec_2();
 			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
-				case TOK_KW_AND: CONSUME;
-					_nt_prec_2();
-					goto loop;
-				case TOK_KW_OR: CONSUME;
-					_nt_prec_2();
+				case TOK_KW_AND:
+				case TOK_KW_OR: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_2());
+					node = parent;
 					goto loop;
 				case PREC_1_FOLLOWS:
 					break;
@@ -336,8 +347,11 @@ static ast_node_t *_nt_prec_2(void) {
 			if(node == NULL) node = _nt_prec_3();
 			else ast_pnode_left(node, _nt_prec_3());
 			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
-				case TOK_OP_COMPARE: CONSUME;
-					_nt_prec_3();
+				case TOK_OP_COMPARE: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_3());
+					node = parent;
 					goto loop;
 				case PREC_2_FOLLOWS:
 					break;
@@ -372,11 +386,12 @@ static ast_node_t *_nt_prec_3(void) {
 		case TERM_FIRSTS:
 			node = _nt_prec_4();
 			loop: switch(PEEK) { // BEGIN _nt_prec_3_()
-				case TOK_OP_PLUS: CONSUME;
-					_nt_prec_4();
-					goto loop;
-				case TOK_OP_MINUS: CONSUME;
-					_nt_prec_4();
+				case TOK_OP_PLUS:
+				case TOK_OP_MINUS: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_4());
+					node = parent;
 					goto loop;
 				case PREC_3_FOLLOWS:
 					break;
@@ -396,14 +411,13 @@ static ast_node_t *_nt_prec_4(void) {
 		case TERM_FIRSTS:
 			node = _nt_prec_5();
 			loop: switch(PEEK) { // BEGIN _nt_prec_4_()
-				case TOK_OP_MULT: CONSUME;
-					_nt_prec_5();
-					goto loop;
-				case TOK_OP_DIV: CONSUME;
-					_nt_prec_5();
-					goto loop;
-				case TOK_OP_MOD: CONSUME;
-					_nt_prec_5();
+				case TOK_OP_MULT:
+				case TOK_OP_DIV:
+				case TOK_OP_MOD: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_5());
+					node = parent;
 					goto loop;
 				case PREC_4_FOLLOWS:
 					break;
