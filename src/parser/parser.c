@@ -2,6 +2,7 @@
 #include "lookaheads.h"
 #include "parser.h"
 
+#include "common/io.h"
 #include "lexer/lexer.h"
 
 #include <stdarg.h>
@@ -10,589 +11,522 @@
 #include <string.h>
 
 typedef enum se_variant {
-	STMT_EXPR,
-	STMT_EXPR_SEM,
-	STMT_EXPR_END
+	OUTER_STMT_EXPR,
+	DELIM_STMT_EXPR,
+	INNER_STMT_EXPR,
 } se_variant_t;
 
-typedef enum log_action {
-	ACTION_PRINT,
-	ACTION_ENTER,
-	ACTION_EXIT
-} log_action_t;
+static struct parser_state {
+	ast_t ast;
+} ps;
 
 // Internal Functions (Helpers) //
 
-static void _log_tree(log_action_t action, ...) {
-	static unsigned nesting = 0;
-	va_list args;
-	switch(action) {
-		case ACTION_ENTER:
-			nesting++;
-			break;
-		case ACTION_EXIT:
-			if(nesting > 0)
-			nesting--;
-			break;
-		case ACTION_PRINT:
-			va_start(args, action);
-			const char *fmt = va_arg(args, char *);
-			for(unsigned i=0; i<nesting; i++) 
-				printf("│ ");
-			printf("├─");
-			vprintf(fmt, args);
-			va_end(args);
-			break;
-	}
-}
-
-static void _panic(token_t *problem) {
+static void _panic_common(token_t *problem) {
 	size_t line = 1;
 	char *file_base = lexer_get_src().string;
 	char *problem_base = problem->content.string;
 	char *last_nl = file_base - 1;
 
-	for(
-		char *c = file_base;
-		c < problem->content.string; c++
-	) if(*c == '\n') line++, last_nl = c;
+	for(char *c = file_base; c < problem_base; c++)
+		if(*c == '\n') line++, last_nl = c;
 
-	printf("\n[%lu:%lu] Errant token encountered: \"%.*s\"\n",
-		line, (uintptr_t) (problem_base - last_nl),
-		(int) problem->content.size,
-		problem_base
-	);
+	printf("[%lu:%lu] Errant token encountered: ", line, (uintptr_t) (problem_base - last_nl));
+	if(problem->type == TOK_EOF) printf("EOF");
+	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
+}
 
+static void _panic(token_t *problem) {
+	_panic_common(problem);
+	putchar('\n');
+	exit(EXIT_FAILURE);
+}
+
+static void _panic_expect(token_t *problem, const char *message) {
+	_panic_common(problem);
+	printf(", expected: %s\n", message);
 	exit(EXIT_FAILURE);
 }
 
 static token_t *_expect(token_type_t type) {
 	token_t *next = CONSUME;
-	if(next->type != type) _panic(next);
+	if(next->type != type) {
+		_panic_common(next);
+		printf(", expected: %s\n", token_type_strs[type]);
+		exit(EXIT_FAILURE);
+	}
 	return next;
 }
 
 // Internal Function Decls (Non-Terminals) //
 
-static void _nt_block(void);
-static void _nt_var_init(void);
-static void _nt_var_expr_next(void);
-static void _nt_var_stmt_next(void);
-static void _nt_type(void);
-static void _nt_stmt_expr(void);
-static void _nt_stmt_expr_sem(void);
-static void _nt_stmt_expr_end(void);
-static void _nt_stmt(void);
-static void _nt_if_next(void);
+static ast_node_t *_nt_block(void);
+static ast_node_t *_nt_var_init(ast_node_t **parent);
+static void _nt_var_expr_next(ast_node_t **parent);
+static void _nt_var_stmt_next(ast_node_t **parent);
+static ast_node_t *_nt_type(void);
+static ast_node_t *_nt_stmt_common(void);
+static ast_node_t *_nt_outer_stmt(void);
+static ast_node_t *_nt_inner_stmt(void);
+static ast_node_t *_nt_stmt_expr(se_variant_t variant);
 
-static void _nt_prec_0(void);
-static void _nt_prec_0_(void);
-static void _nt_prec_1(void);
-static void _nt_prec_1_(void);
-static void _nt_prec_2(void);
-static void _nt_prec_2_(void);
-static bool _nt_unaries_2(void);
-static void _nt_prec_3(void);
-static void _nt_prec_3_(void);
-static void _nt_prec_4(void);
-static void _nt_prec_4_(void);
-static void _nt_prec_5(void);
-static bool _nt_unaries_5(void);
-static void _nt_term(void);
-static void _nt_term_(void);
-static void _nt_func(void);
-static void _nt_func_(void);
+static ast_node_t *_nt_prec_0(void);
+static ast_node_t *_nt_prec_1(void);
+static ast_node_t *_nt_prec_2(void);
+static ast_node_t *_nt_unaries_2(void);
+static ast_node_t *_nt_prec_3(void);
+static ast_node_t *_nt_prec_4(void);
+static ast_node_t *_nt_prec_5(void);
+static ast_node_t *_nt_unaries_5(void);
+static ast_node_t *_nt_term(void);
+static ast_node_t *_nt_func(ast_node_t *child);
+
+// Internal Function Defs (Non-Terminal Helpers) //
+
+static void _nth_vardecl(ast_node_t **parent) {
+	string_t ident_str = _expect(TOK_IDENT)->content;
+	string_t assign_str = _expect(TOK_OP_ASSIGN)->content;
+	ast_node_t *assign = ast_pnode_new(&ps.ast, AST_OP_BINARY, assign_str);
+	*parent = ast_lnode_add(&ps.ast, *parent, assign);
+	ast_pnode_left(assign, ast_pnode_new(&ps.ast, AST_IDENT, ident_str));
+	ast_pnode_right(assign, _nt_var_init(parent));
+}
 
 // Internal Functions Defs (Non-Terminals) //
 
-static void _nt_block(void) {
-	printf("BLOCK\n");
-	_log_tree(ACTION_ENTER);
+static ast_node_t *_nt_block(void) {
+	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 loop:
 	switch(PEEK) {
-		case TOK_KW_VAR: CONSUME;
-			_log_tree(ACTION_PRINT, "VAR ");
-			_nt_type();
-			_log_tree(ACTION_ENTER);
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
-			_log_tree(ACTION_EXIT);
+		case TOK_KW_VAR: ;
+			ast_node_t *vardecl = ast_lnode_new(&ps.ast, 4, AST_VAR, CONSUME->content);
+			vardecl = ast_lnode_add(&ps.ast, vardecl, _nt_type());
+			_nth_vardecl(&vardecl);
+			node = ast_lnode_add(&ps.ast, node, vardecl);
 			goto loop;
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			_nt_stmt_expr_sem();
+			node = ast_lnode_add(&ps.ast, node, _nt_stmt_expr(OUTER_STMT_EXPR));
 			goto loop;
 		case TOK_KW_END:
+		case TOK_KW_ELIF:
+		case TOK_KW_ELSE:
 		case TOK_EOF:
-			_log_tree(ACTION_EXIT);
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\"var\", statement or expression");
 	}
+	return node;
 }
 
-static void _nt_var_init(void) {
-	printf(" ASSIGN ");
+static ast_node_t *_nt_var_init(ast_node_t **parent) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case STMT_FIRSTS:
-			_nt_stmt();
-			_nt_var_stmt_next();
+			node = _nt_outer_stmt();
+			_nt_var_stmt_next(parent);
 			break;
 		case EXPR_FIRSTS:
-			_nt_prec_0();
-			printf("\n");
-			_nt_var_expr_next();
+			node = _nt_prec_0();
+			_nt_var_expr_next(parent);
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "statement or expression");
 	}
+	return node;
 }
 
-static void _nt_var_expr_next(void) {
+static void _nt_var_expr_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
+			_nth_vardecl(parent);
 			break;
 		case TOK_SEMICOLON: CONSUME;
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\",\" or \";\"");
 	}
 }
 
-static void _nt_var_stmt_next(void) {
+static void _nt_var_stmt_next(ast_node_t **parent) {
 	switch(PEEK) {
 		case TOK_COMMA: CONSUME;
-			token_t *id = _expect(TOK_IDENT);
-			_log_tree(ACTION_PRINT, "%.*s",
-				(int) id->content.size,
-				id->content.string
-			);
-			_expect(TOK_OP_ASSIGN);
-			_nt_var_init();
+			_nth_vardecl(parent);
 			break;
 		case TOK_KW_END:
+		case TOK_KW_ELIF:
+		case TOK_KW_ELSE:
 		case TOK_EOF:
+		case TOK_KW_VAR:
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
 			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\",\" or \"end\" or EOF or block member");
 	}
 }
 
-static void _nt_type(void) {
+static ast_node_t *_nt_type(void) {
 	switch(PEEK) {
-		case TOK_TYPE_NAT: CONSUME;
-			printf("nat\n");
-			break;
-		case TOK_TYPE_INT: CONSUME;
-			printf("int\n");
-			break;
-		case TOK_TYPE_BOOL: CONSUME;
-			printf("bool\n");
-			break;
-		default: _panic(CONSUME);
+		case TOK_TYPE_NAT:
+		case TOK_TYPE_INT:
+		case TOK_TYPE_BOOL:
+			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
+		default: _panic_expect(CONSUME, "\"nat\" or \"int\" or \"bool\"");
 	}
+	return NULL;
 }
 
-static void _nt_stmt_expr(void) {
+static ast_node_t *_nt_stmt_common(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_prec_0();
-			printf("\n");
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_stmt_expr_sem(void) {
-	switch(PEEK) {
-		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_prec_0();
-			printf("\n");
-			_expect(TOK_SEMICOLON);
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_stmt_expr_end(void) {
-	switch(PEEK) {
-		case STMT_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_stmt();
-			break;
-		case EXPR_FIRSTS:
-			_log_tree(ACTION_PRINT, "");
-			_nt_prec_0();
-			printf("\n");
+		case TOK_KW_IF: ;
+			ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+			ast_pnode_left(branch, _nt_stmt_expr(DELIM_STMT_EXPR));
+			_expect(TOK_COLON);
+			ast_pnode_right(branch, _nt_stmt_expr(INNER_STMT_EXPR));
+			node = ast_lnode_new(&ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
+			node = ast_lnode_add(&ps.ast, node, branch);
+			loop: switch(PEEK) { // BEGIN _nt_else()
+				case TOK_KW_ELIF: ;
+					branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+					ast_pnode_left(branch, _nt_stmt_expr(DELIM_STMT_EXPR));
+					_expect(TOK_COLON);
+					ast_pnode_right(branch, _nt_stmt_expr(INNER_STMT_EXPR));
+					node = ast_lnode_add(&ps.ast, node, branch);
+					goto loop;
+				case TOK_KW_ELSE: ;
+					branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+					ast_pnode_left(branch, NULL);
+					ast_pnode_right(branch, _nt_stmt_expr(INNER_STMT_EXPR));
+					node = ast_lnode_add(&ps.ast, node, branch);
+					break;
+				case TOK_KW_END:
+					break;
+				default: _panic_expect(CONSUME, "\"else\" or \"end\"");
+			} // END _nt_else()
 			_expect(TOK_KW_END);
 			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_stmt(void) {
-	switch(PEEK) {
-		case TOK_KW_DO: CONSUME;
-			_nt_block();
+		case TOK_KW_WHILE:
+			node = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
+			ast_pnode_left(node, _nt_stmt_expr(DELIM_STMT_EXPR));
+			_expect(TOK_COLON);
+			ast_pnode_right(node, _nt_stmt_expr(INNER_STMT_EXPR));
 			_expect(TOK_KW_END);
 			break;
-		case TOK_KW_IF: CONSUME;
-			printf("IF\n");
-			_log_tree(ACTION_ENTER);
-			_nt_stmt_expr();
-			_expect(TOK_COLON);
-			_nt_stmt_expr();
-			_nt_if_next();
-			break;
-		case TOK_KW_WHILE: CONSUME;
-			printf("WHILE\n");
-			_log_tree(ACTION_ENTER);
-			_nt_stmt_expr();
-			_expect(TOK_COLON);
-			_nt_stmt_expr_end();
-			_log_tree(ACTION_EXIT);
-			break;
-		case TOK_KW_RETURN: CONSUME;
-			printf("RETURN\n");
-			_log_tree(ACTION_ENTER);
-			_nt_stmt_expr_sem();
-			_log_tree(ACTION_EXIT);
-			break;
-		default: _panic(CONSUME);
+		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
 	}
+	return node;
 }
 
-static void _nt_if_next(void) {
-	_log_tree(ACTION_EXIT);
+static ast_node_t *_nt_outer_stmt(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_KW_ELSE: CONSUME;
-			_log_tree(ACTION_PRINT, "ELSE\n");
-			_log_tree(ACTION_ENTER);
-			_nt_stmt_expr_end();
+		case TOK_KW_DO: ;
+			string_t content = CONSUME->content;
+			node = _nt_block();
+			node->content = content;
+			_expect(TOK_KW_END);
 			break;
-		case TOK_KW_END: CONSUME;
+		case TOK_KW_RETURN:
+			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(node, _nt_stmt_expr(OUTER_STMT_EXPR));
+			ast_pnode_right(node, NULL);
 			break;
-		default: _panic(CONSUME);
+		case TOK_KW_IF:
+		case TOK_KW_WHILE:
+			node = _nt_stmt_common();
+			break;
+		default: _panic_expect(CONSUME, "statement");
 	}
+	return node;
 }
 
-static void _nt_prec_0(void) {
-	printf("[");
+static ast_node_t *_nt_inner_stmt(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_KW_NOT:
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			_nt_prec_1();
-			_nt_prec_0_();
+		case TOK_KW_DO: ;
+			string_t content = CONSUME->content;
+			node = _nt_block();
+			node->content = content;
 			break;
-		default: _panic(CONSUME);
+		case TOK_KW_RETURN:
+			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(node, _nt_stmt_expr(INNER_STMT_EXPR));
+			ast_pnode_right(node, NULL);
+			break;
+		case TOK_KW_IF:
+		case TOK_KW_WHILE:
+			node = _nt_stmt_common();
+			break;
+		default: _panic_expect(CONSUME, "statement");
 	}
-	printf("]");
+	return node;
 }
 
-static void _nt_prec_0_(void) {
-loop:
+static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_OP_ASSIGN:
-		case TOK_OP_ASSIGN_ALT: ;
-			string_t variant = CONSUME->content;
-			printf(" ");
-			_nt_prec_1();
-			printf(" %.*s",
-				(int) variant.size,
-				variant.string
-			);
-			goto loop;
-		case PREC_0_FOLLOWS:
+		case STMT_FIRSTS:
+			if(variant == INNER_STMT_EXPR) node = _nt_inner_stmt();
+			else node = _nt_outer_stmt();
 			break;
-		default: _panic(CONSUME);
+		case EXPR_FIRSTS:
+			node = _nt_prec_0();
+			if(variant == OUTER_STMT_EXPR) _expect(TOK_SEMICOLON);
+			break;
+		default: _panic_expect(CONSUME, "statement or expression");
 	}
+	return node;
 }
 
-static void _nt_prec_1(void) {
-	switch(PEEK) {
-		case TOK_KW_NOT:
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			_nt_prec_2();
-			_nt_prec_1_();
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_prec_1_(void) {
-loop:
-	switch(PEEK) {
-		case TOK_KW_AND: CONSUME;
-			printf(" ");
-			_nt_prec_2();
-			printf(" and");
-			goto loop;
-		case TOK_KW_OR: CONSUME;
-			printf(" ");
-			_nt_prec_2();
-			printf("or");
-			goto loop;
-		case PREC_1_FOLLOWS:
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_prec_2(void) {
+static ast_node_t *_nt_prec_0(void) {
+	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_INTERNAL, EMPTY_STRING);
 	switch(PEEK) {
 		case TOK_KW_NOT:
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS: ;
-			bool found = _nt_unaries_2();
-			if(found) printf("(");
-			_nt_prec_3();
-			_nt_prec_2_();
-			if(found) printf(")");
+			node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
+			loop: switch(PEEK) { // BEGIN _nt_prec_0_()
+				case TOK_OP_ASSIGN:
+				case TOK_OP_ASSIGN_ALT: ;
+					ast_node_t *operator = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					node = ast_lnode_add(&ps.ast, node, operator);
+					node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
+					goto loop;
+				case PREC_0_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_prec_0_()
+			for(size_t i = node->children.list.count - 1; i > 1; i -= 2) {
+				ast_node_t **left = &node->children.list.list[i - 2];
+				ast_node_t *parent = node->children.list.list[i - 1];
+				ast_node_t *right = node->children.list.list[i];
+				ast_pnode_left(parent, *left);
+				ast_pnode_right(parent, right);
+				*left = parent;
+			}
+			node = node->children.list.list[0];
 			break;
 		default: _panic(CONSUME);
 	}
+	return node;
 }
 
-static void _nt_prec_2_(void) {
-loop:
+static ast_node_t *_nt_prec_1(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_OP_COMPARE: ;
-			string_t variant = CONSUME->content;
-			printf(" ");
-			_nt_prec_3();
-			printf(" %.*s",
-				(int) variant.size,
-				variant.string
-			);
-			goto loop;
-		case PREC_2_FOLLOWS:
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static bool _nt_unaries_2(void) {
-	switch(PEEK) {
-		case TOK_KW_NOT: CONSUME;
-			printf("not");
-			return true;
+		case TOK_KW_NOT:
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS:
-			return false;
+			node = _nt_prec_2();
+			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
+				case TOK_KW_AND:
+				case TOK_KW_OR: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_2());
+					node = parent;
+					goto loop;
+				case PREC_1_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_prec_1_()
+			break;
 		default: _panic(CONSUME);
 	}
-	return false;
+	return node;
 }
 
-static void _nt_prec_3(void) {
+static ast_node_t *_nt_prec_2(void) {
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case TOK_KW_NOT:
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS: ;
+			node = _nt_unaries_2();
+			if(node == NULL) node = _nt_prec_3();
+			else ast_pnode_left(node, _nt_prec_3());
+			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
+				case TOK_OP_COMPARE: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_3());
+					node = parent;
+					goto loop;
+				case PREC_2_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_prec_2_()
+			break;
+		default: _panic(CONSUME);
+	}
+	return node;
+}
+
+static ast_node_t *_nt_unaries_2(void) {
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case TOK_KW_NOT:
+			node = ast_pnode_new(&ps.ast, AST_OP_UNARY, CONSUME->content);
+			break;
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+		case TERM_FIRSTS:
+			break;
+		default: _panic(CONSUME);
+	}
+	return node;
+}
+
+static ast_node_t *_nt_prec_3(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS:
-			_nt_prec_4();
-			_nt_prec_3_();
+			node = _nt_prec_4();
+			loop: switch(PEEK) { // BEGIN _nt_prec_3_()
+				case TOK_OP_PLUS:
+				case TOK_OP_MINUS: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_4());
+					node = parent;
+					goto loop;
+				case PREC_3_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_prec_3_()
 			break;
 		default: _panic(CONSUME);
 	}
+	return node;
 }
 
-static void _nt_prec_3_(void) {
-loop:
-	switch(PEEK) {
-		case TOK_OP_PLUS: CONSUME;
-			printf(" ");
-			_nt_prec_4();
-			printf(" +");
-			goto loop;
-		case TOK_OP_MINUS: CONSUME;
-			printf(" ");
-			_nt_prec_4();
-			printf(" -");
-			goto loop;
-		case PREC_3_FOLLOWS:
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_prec_4(void) {
+static ast_node_t *_nt_prec_4(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS:
-			_nt_prec_5();
-			_nt_prec_4_();
+			node = _nt_prec_5();
+			loop: switch(PEEK) { // BEGIN _nt_prec_4_()
+				case TOK_OP_MULT:
+				case TOK_OP_DIV:
+				case TOK_OP_MOD: ;
+					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
+					ast_pnode_left(parent, node);
+					ast_pnode_right(parent, _nt_prec_5());
+					node = parent;
+					goto loop;
+				case PREC_4_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_prec_4_()
 			break;
 		default: _panic(CONSUME);
 	}
+	return node;
 }
 
-static void _nt_prec_4_(void) {
-loop:
-	switch(PEEK) {
-		case TOK_OP_MULT: CONSUME;
-			printf(" ");
-			_nt_prec_5();
-			printf(" *");
-			goto loop;
-		case TOK_OP_DIV: CONSUME;
-			printf(" ");
-			_nt_prec_5();
-			printf(" /");
-			goto loop;
-		case TOK_OP_MOD: CONSUME;
-			printf(" ");
-			_nt_prec_5();
-			printf(" %%");
-			goto loop;
-		case PREC_4_FOLLOWS:
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_prec_5(void) {
+static ast_node_t *_nt_prec_5(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OP_PLUS:
 		case TOK_OP_MINUS:
 		case TERM_FIRSTS: ;
-			bool found = _nt_unaries_5();
-			if(found) printf("(");
-			_nt_term();
-			if(found) printf(")");
+			node = _nt_unaries_5();
+			if(node == NULL) node = _nt_term();
+			else ast_pnode_left(node, _nt_term());
 			break;
 		default: _panic(CONSUME);
 	}
+	return node;
 }
 
-static bool _nt_unaries_5(void) {
+static ast_node_t *_nt_unaries_5(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_OP_PLUS: CONSUME;
-			printf("+");
-			return true;
-		case TOK_OP_MINUS: CONSUME;
-			printf("-");
-			return true;
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+			node = ast_pnode_new(&ps.ast, AST_OP_UNARY, CONSUME->content);
+			break;
 		case TERM_FIRSTS:
-			return false;
+			break;
 		default: _panic(CONSUME);
 	}
-	return false;
+	return node;
 }
 
-static void _nt_term(void) {
+static ast_node_t *_nt_term(void) {
+	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OPEN_ROUND: CONSUME;
-			_nt_prec_0();
+			node = _nt_prec_0();
 			_expect(TOK_CLOSE_ROUND);
 			break;
-		case TOK_IDENT: ;
-			string_t id = CONSUME->content;
-			printf("%.*s",
-				(int) id.size,
-				id.string
-			);
-			_nt_term_();
+		case TOK_IDENT:
+			node = ast_pnode_new(&ps.ast, AST_IDENT, CONSUME->content);
+			switch(PEEK) { // BEGIN _nt_term_()
+				case TOK_OPEN_ROUND: CONSUME;
+					node = _nt_func(node);
+					_expect(TOK_CLOSE_ROUND);
+					break;
+				case PREC_5_FOLLOWS:
+					break;
+				default: _panic(CONSUME);
+			} // END _nt_term_()
 			break;
-		case TOK_LIT_NUM: ;
-			string_t num = CONSUME->content;
-			printf("%.*s",
-				(int) num.size,
-				num.string
-			);
-			break;
-		case TOK_KW_TRUE: CONSUME;
-			printf("`true`");
-			break;
-		case TOK_KW_FALSE: CONSUME;
-			printf("`false`");
-			break;
-		case TOK_KW_NIL: CONSUME;
-			printf("`nil`");
+		case TOK_LIT_NUM:
+		case TOK_KW_TRUE:
+		case TOK_KW_FALSE:
+		case TOK_KW_NIL:
+			node = ast_pnode_new(&ps.ast, AST_LITERAL, CONSUME->content);
 			break;
 		default: _panic(CONSUME);
 	}
+	return node;
 }
 
-static void _nt_term_(void) {
-	switch(PEEK) {
-		case TOK_OPEN_ROUND: CONSUME;
-			_log_tree(ACTION_ENTER);
-			_nt_func();
-			_log_tree(ACTION_EXIT);
-			_expect(TOK_CLOSE_ROUND);
-			break;
-		case PREC_5_FOLLOWS:
-			break;
-		default: _panic(CONSUME);
-	}
-}
-
-static void _nt_func(void) {
+static ast_node_t *_nt_func(ast_node_t *child) {
+	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_CALL, EMPTY_STRING);
+	node = ast_lnode_add(&ps.ast, node, child);
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			printf("\n");
-			_nt_stmt_expr();
-			_nt_func_();
-			break;
+			node = ast_lnode_add(&ps.ast, node, _nt_stmt_expr(DELIM_STMT_EXPR));
+			loop: switch(PEEK) { // BEGIN _nt_func_()
+				case TOK_COMMA: CONSUME;
+					node = ast_lnode_add(&ps.ast, node, _nt_stmt_expr(DELIM_STMT_EXPR));
+					goto loop;
+				case TOK_CLOSE_ROUND:
+					break;
+				default: _panic(CONSUME);
+			}
+			break; // END _nt_func_()
 		case TOK_CLOSE_ROUND:
 			break;
 		default: _panic(CONSUME);
 	}
-}
-
-static void _nt_func_(void) {
-loop:
-	switch(PEEK) {
-		case TOK_COMMA: CONSUME;
-			_nt_stmt_expr();
-			goto loop;
-		case TOK_CLOSE_ROUND:
-			break;
-		default: _panic(CONSUME);
-	}
+	return node;
 }
 
 // External Functions //
 
 void parser_start(void) {
-	_log_tree(ACTION_PRINT, "");
-	_nt_block();
-	_expect(TOK_EOF);
-
-	// ast_t ast = ast_tree_new();
-	// ast_node_t *node1 = ast_lnode_new(&ast, 3, AST_BLOCK, (string_t){.size=0, .string=NULL});
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xAAAAAAAAAAAAAAAA);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xBBBBBBBBBBBBBBBB);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xCCCCCCCCCCCCCCCC);
-	// node1 = ast_lnode_add(&ast, node1, (ast_node_t *) 0xDDDDDDDDDDDDDDDD);
-	// ast_node_t *node2 = ast_pnode_new(&ast, AST_WHILE, (string_t){.size=0, .string=NULL});
-	// ast_pnode_left(node2, node1);
+	ps.ast = ast_tree_new();
+	ast_node_t *root = NULL;
+	switch(PEEK) {
+		case TOK_KW_VAR:
+		case STMT_FIRSTS:
+		case EXPR_FIRSTS:
+			root = _nt_block();
+			_expect(TOK_EOF);
+		case TOK_EOF:
+			break;
+		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
+	}
+	if(root == NULL) printf("The file is empty.\n");
+	else ast_tree_visualize(root);
+	ast_tree_free(&ps.ast);
 }

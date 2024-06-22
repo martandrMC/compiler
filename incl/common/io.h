@@ -18,6 +18,9 @@ typedef struct string {
 	char *string;
 } string_t;
 
+// The canonical configuration of a string_t to indicate that it is empty.
+#define EMPTY_STRING (string_t){.size=0, .string=NULL}
+
 /** Attempts to read from the given file in chunks and allocates an array on
   * the heap to exatly fit the contents of it. If allocation is unsuccessful
   * then an empty string is returned instead and errno is set. Use `error_if`
