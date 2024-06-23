@@ -10,10 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "precedences.c"
+
 typedef enum se_variant {
 	OUTER_STMT_EXPR,
 	DELIM_STMT_EXPR,
-	INNER_STMT_EXPR,
+	INNER_STMT_EXPR
 } se_variant_t;
 
 static struct parser_state {
@@ -92,12 +94,15 @@ static void _nth_vardecl(ast_node_t **parent) {
 	ast_pnode_right(assign, _nt_var_init(parent));
 }
 
+static ast_node_t *_nth_shunting_yard(void) {
+	return ast_pnode_new(&ps.ast, AST_IDENT, TO_STRING("EXPR"));
+}
+
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *_nt_block(void) {
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
-loop:
-	switch(PEEK) {
+	loop: switch(PEEK) {
 		case TOK_KW_VAR: ;
 			ast_node_t *vardecl = ast_lnode_new(&ps.ast, 4, AST_VAR, CONSUME->content);
 			vardecl = ast_lnode_add(&ps.ast, vardecl, _nt_type());
@@ -277,6 +282,16 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 }
 
 static ast_node_t *_nt_prec_0(void) {
+	// Temporary hot-wire for shunting yard rewrite
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case TOK_IDENT: CONSUME;
+			node = _nth_shunting_yard();
+			break;
+		default: _panic(CONSUME);
+	}
+	return node;
+	/*
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_INTERNAL, EMPTY_STRING);
 	switch(PEEK) {
 		case TOK_KW_NOT:
@@ -308,6 +323,7 @@ static ast_node_t *_nt_prec_0(void) {
 		default: _panic(CONSUME);
 	}
 	return node;
+	*/
 }
 
 static ast_node_t *_nt_prec_1(void) {
