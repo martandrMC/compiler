@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 typedef struct vector {
+	arena_t *arena;
 	size_t count;
 	size_t capacity;
 	size_t unit_size;
