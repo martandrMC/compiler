@@ -3,6 +3,7 @@
 #include "parser.h"
 
 #include "common/io.h"
+#include "common/vector.h"
 #include "lexer/lexer.h"
 
 #include <stdarg.h>
@@ -94,8 +95,78 @@ static void _nth_vardecl(ast_node_t **parent) {
 	ast_pnode_right(assign, _nt_var_init(parent));
 }
 
-static ast_node_t *_nth_shunting_yard(void) {
-	return ast_pnode_new(&ps.ast, AST_IDENT, TO_STRING("EXPR"));
+typedef struct operator {
+	token_t *token;
+	unsigned prec;
+	bool unary;
+	bool left;
+} operator_t;
+
+static operator_t _nth_get_binary_operator(void) {
+	token_t *token = CONSUME;
+	operator_t ret = {.token = token, .prec = 0, .unary = false, .left = false};
+	switch(token->type) {
+		case TOK_OP_ASSIGN: case TOK_OP_ASSIGN_ALT:
+			ret.prec = 5; ret.left = true; break;
+		case TOK_KW_AND: case TOK_KW_OR:
+			ret.prec = 4; break;
+		case TOK_OP_COMPARE:
+			ret.prec = 3; break;
+		case TOK_OP_PLUS: case TOK_OP_MINUS:
+			ret.prec = 2; break;
+		case TOK_OP_MULT: case TOK_OP_DIV: case TOK_OP_MOD:
+			ret.prec = 1; break;
+		default: _panic_expect(token, "a valid binary operator");
+	}
+	return ret;
+}
+
+static ast_node_t *_nth_shunting_yard(arena_t *arena) {
+	bool atom = true;
+	vector_t *output = vector_new(arena, sizeof(ast_node_t *), 16);
+	vector_t *opstack = vector_new(arena, sizeof(operator_t), 16);
+
+	while(true) {
+		switch(PEEK) {
+			case TOK_COLON: case TOK_SEMICOLON:
+			case TOK_KW_END: case TOK_KW_ELIF: case TOK_KW_ELSE:
+				goto exit;
+			default: ;
+		}
+	
+		if(atom) {
+			ast_node_t *node = ast_pnode_new(&ps.ast, AST_IDENT, _expect(TOK_IDENT)->content);
+			vector_add(&output, &node);
+			atom = false;
+		} else {
+			operator_t newop = _nth_get_binary_operator();
+			while(opstack->count > 0 && (newop.left ?
+				((operator_t *) vector_peek(opstack))->prec < newop.prec :
+				((operator_t *) vector_peek(opstack))->prec <= newop.prec
+			)) {
+				operator_t oldop; vector_take(opstack, &oldop);
+				ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, oldop.token->content);
+				vector_add(&output, &node);
+			}
+			vector_add(&opstack, &newop);
+			atom = true;
+		}
+	} exit: ;
+
+	size_t opstack_size = opstack->count;
+	for(size_t i=0; i<opstack_size; i++) {
+		operator_t oldop; vector_take(opstack, &oldop);
+		ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, oldop.token->content);
+		vector_add(&output, &node);
+	}
+
+	ast_node_t *expr = ast_lnode_new(&ps.ast, output->count, AST_INTERNAL, EMPTY_STRING);
+	for(size_t i=0; i<output->count; i++) {
+		ast_node_t *tmp = *(ast_node_t **) vector_peek_from(output, i);
+		expr = ast_lnode_add(&ps.ast, expr, tmp);
+	}
+
+	return expr;
 }
 
 // Internal Functions Defs (Non-Terminals) //
@@ -285,8 +356,10 @@ static ast_node_t *_nt_prec_0(void) {
 	// Temporary hot-wire for shunting yard rewrite
 	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_IDENT: CONSUME;
-			node = _nth_shunting_yard();
+		case TOK_IDENT: ;
+			arena_t tmp = arena_new(1024);
+			node = _nth_shunting_yard(&tmp);
+			arena_free(&tmp);
 			break;
 		default: _panic(CONSUME);
 	}

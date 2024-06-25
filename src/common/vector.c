@@ -41,20 +41,26 @@ void vector_take(vector_t *vector, void *data) {
 	vector->count--;
 }
 
-void *vector_peek(const vector_t *vector) {
+void *vector_peek(vector_t *vector) {
 	size_t last = vector->count - 1;
 	return &vector->data[last * vector->unit_size];
 }
 
 void vector_add_to(vector_t **vector, const void *data, size_t index) {
+	(void) vector;
+	(void) data;
+	(void) index;
 	// TODO
 }
 
 void vector_take_from(vector_t *vector, void *data, size_t index) {
+	(void) vector;
+	(void) data;
+	(void) index;
 	// TODO
 }
 
-void *vector_peek_from(const vector_t *vector, size_t index) {
+void *vector_peek_from(vector_t *vector, size_t index) {
 	if(index >= vector->count) return NULL;
 	return &vector->data[index * vector->unit_size];
 }
