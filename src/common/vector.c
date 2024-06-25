@@ -37,7 +37,7 @@ void vector_add(vector_t **vector, const void *data) {
 
 void vector_take(vector_t *vector, void *data) {
 	// Playing it safe, data may be part of the vector
-	memmove(data, vector_get(vector), vector->unit_size);
+	memmove(data, vector_peek(vector), vector->unit_size);
 	vector->count--;
 }
 
