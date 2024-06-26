@@ -28,6 +28,9 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 		case AST_CALL:
 			printf("CALL\n");
 			break;
+		case AST_INTERNAL:
+			printf("DBG\n");
+			break;
 		default:
 			printf(
 				"%.*s\n",

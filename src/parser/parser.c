@@ -121,6 +121,25 @@ static operator_t _nth_get_binary_operator(void) {
 	return ret;
 }
 
+static operator_t _nth_get_unary_operator(void) {
+	token_t *token = CONSUME;
+	operator_t ret = {.token = token, .prec = 0, .unary = true, .left = true};
+	switch(token->type) {
+		case TOK_KW_NOT:
+			ret.prec = 4; break;
+		case TOK_OP_PLUS: case TOK_OP_MINUS:
+			ret.prec = 1; break;
+		case TOK_IDENT:
+		case TOK_LIT_NUM:
+		case TOK_KW_TRUE:
+		case TOK_KW_FALSE:
+		case TOK_KW_NIL:
+			break;
+		default: _panic_expect(token, "a valid unary operator");
+	}
+	return ret;
+}
+
 static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 	bool atom = true;
 	vector_t *output = vector_new(arena, sizeof(ast_node_t *), 16);
@@ -133,11 +152,17 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 				goto exit;
 			default: ;
 		}
-	
+
 		if(atom) {
-			ast_node_t *node = ast_pnode_new(&ps.ast, AST_IDENT, _expect(TOK_IDENT)->content);
-			vector_add(&output, &node);
-			atom = false;
+			operator_t newop = _nth_get_unary_operator();
+			if(newop.prec == 0) {
+				ast_node_type_t node_type;
+				if(newop.token->type == TOK_IDENT) node_type = AST_IDENT;
+				else node_type = AST_LITERAL;
+				ast_node_t *node = ast_pnode_new(&ps.ast, node_type, newop.token->content);
+				vector_add(&output, &node);
+				atom = false;
+			} else vector_add(&opstack, &newop);
 		} else {
 			operator_t newop = _nth_get_binary_operator();
 			while(opstack->count > 0 && (newop.left ?
@@ -356,7 +381,7 @@ static ast_node_t *_nt_prec_0(void) {
 	// Temporary hot-wire for shunting yard rewrite
 	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_IDENT: ;
+		case EXPR_FIRSTS: ;
 			arena_t tmp = arena_new(1024);
 			node = _nth_shunting_yard(&tmp);
 			arena_free(&tmp);
