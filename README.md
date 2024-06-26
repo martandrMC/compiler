@@ -43,9 +43,12 @@ write(y); // 3
 ## The Bottom Line
 Since I have been historically not *the best*<sup>TM</sup> at writing compilers, the initial stage of this project is to get a working
 minimum viable product and only thereafter expand the feature set. That essentially means:
-- Just three types: `nat`, `int`, `bool`, `nil` (internal), `never` (internal)
+- Just three (plus two internal) types: `nat`, `int`, `bool`, `nil` (internal), `never` (internal)
 - Just the basic statements: `if`-`elif`-`else`, `while`, `do`-`end`, `return` (not what you think it does)
 - No type "decorators" like `const` or `ref` (pointers) or `?` (optionals)
 - No I/O except for temporary intrinsic functions `read` and `write`
 - No `func`s (function declarations)
 - No multi-file support
+
+All of these decisions were made in the effort to reduce the time needed to get to a working compiler. Once that happens, these features
+will gradually get introduced into the language to complete it. It's all free reign from there on out.
