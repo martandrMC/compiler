@@ -1,18 +1,16 @@
 #ifndef AST_H
 #define AST_H
 
+#include "nodes.h"
+
 #include "common/arena.h"
 #include "common/io.h"
 
 #define AST_FIRST_LIST_NODE AST_INTERNAL
 
+extern const char *node_type_strs[];
 typedef enum ast_node_type {
-	// Pair //
-	AST_TYPE, AST_IDENT, AST_LITERAL, // Leaf Nodes
-	AST_OP_UNARY, AST_OP_BINARY, // Operators
-	AST_RETURN, AST_WHILE, AST_IF_CASE, // Statements
-	// List //
-	AST_INTERNAL, AST_BLOCK, AST_VAR, AST_IF_LIST, AST_CALL
+	FOREACH_NODE(GENERATE_AST_ENUM)
 } ast_node_type_t;
 
 #pragma GCC diagnostic push 

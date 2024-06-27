@@ -7,7 +7,7 @@
 
 extern const char *token_type_strs[];
 typedef enum token_type {
-	FOREACH_TOKEN(GENERATE_ENUM)
+	FOREACH_TOKEN(GENERATE_TOK_ENUM)
 } token_type_t;
 
 typedef struct token {

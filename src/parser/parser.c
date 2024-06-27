@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "precedences.c"
-
 typedef enum se_variant {
 	OUTER_STMT_EXPR,
 	DELIM_STMT_EXPR,
@@ -157,6 +155,13 @@ static operator_t _nth_get_unary_operator(void) {
 	return ret;
 }
 
+static void _nth_pop_operator(vector_t **output, vector_t **opstack) {
+	operator_t old_op; vector_take(*opstack, &old_op);
+	ast_node_type_t node_type = old_op.unary ? AST_OP_UNARY : AST_OP_BINARY;
+	ast_node_t *node = ast_pnode_new(&ps.ast, node_type, old_op.token->content);
+	vector_add(output, &node);
+}
+
 static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 	bool atom = true;
 	vector_t *output = vector_new(arena, sizeof(ast_node_t *), 16);
@@ -182,22 +187,15 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 			while(opstack->count > 0 && (new_op.left ?
 				((operator_t *) vector_peek(opstack))->prec < new_op.prec :
 				((operator_t *) vector_peek(opstack))->prec <= new_op.prec
-			)) {
-				operator_t old_op; vector_take(opstack, &old_op);
-				ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, old_op.token->content);
-				vector_add(&output, &node);
-			}
+			)) _nth_pop_operator(&output, &opstack);
 			vector_add(&opstack, &new_op);
 			atom = true;
 		}
 	} exit: ;
+	if(atom) _panic_expect(CONSUME, "another expression term");
 
 	size_t opstack_size = opstack->count;
-	for(size_t i=0; i<opstack_size; i++) {
-		operator_t oldop; vector_take(opstack, &oldop);
-		ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, oldop.token->content);
-		vector_add(&output, &node);
-	}
+	for(size_t i=0; i<opstack_size; i++) _nth_pop_operator(&output, &opstack);
 
 	ast_node_t *expr = ast_lnode_new(&ps.ast, output->count, AST_INTERNAL, EMPTY_STRING);
 	for(size_t i=0; i<output->count; i++) {
