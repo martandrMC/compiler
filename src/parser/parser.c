@@ -106,36 +106,53 @@ static operator_t _nth_get_binary_operator(void) {
 	token_t *token = CONSUME;
 	operator_t ret = {.token = token, .prec = 0, .unary = false, .left = false};
 	switch(token->type) {
-		case TOK_OP_ASSIGN: case TOK_OP_ASSIGN_ALT:
-			ret.prec = 5; ret.left = true; break;
-		case TOK_KW_AND: case TOK_KW_OR:
-			ret.prec = 4; break;
+		case TOK_OP_ASSIGN:
+		case TOK_OP_ASSIGN_ALT:
+			ret.prec = 5;
+			ret.left = true;
+			break;
+		case TOK_KW_AND:
+		case TOK_KW_OR:
+			ret.prec = 4;
+			break;
 		case TOK_OP_COMPARE:
-			ret.prec = 3; break;
-		case TOK_OP_PLUS: case TOK_OP_MINUS:
-			ret.prec = 2; break;
-		case TOK_OP_MULT: case TOK_OP_DIV: case TOK_OP_MOD:
-			ret.prec = 1; break;
+			ret.prec = 3;
+			break;
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+			ret.prec = 2;
+			break;
+		case TOK_OP_MULT:
+		case TOK_OP_DIV:
+		case TOK_OP_MOD:
+			ret.prec = 1;
+			break;
 		default: _panic_expect(token, "a valid binary operator");
 	}
 	return ret;
 }
 
 static operator_t _nth_get_unary_operator(void) {
-	token_t *token = CONSUME;
-	operator_t ret = {.token = token, .prec = 0, .unary = true, .left = true};
-	switch(token->type) {
+	//token_t *token = CONSUME;
+	operator_t ret = {.token = NULL, .prec = 0, .unary = true, .left = true};
+	switch(PEEK) {
 		case TOK_KW_NOT:
-			ret.prec = 4; break;
-		case TOK_OP_PLUS: case TOK_OP_MINUS:
-			ret.prec = 1; break;
+			ret.token = CONSUME;
+			ret.prec = 4;
+			break;
+		case TOK_OP_PLUS:
+		case TOK_OP_MINUS:
+			ret.token = CONSUME;
+			ret.prec = 1;
+			break;
+		case TOK_OPEN_ROUND:
 		case TOK_IDENT:
 		case TOK_LIT_NUM:
 		case TOK_KW_TRUE:
 		case TOK_KW_FALSE:
 		case TOK_KW_NIL:
 			break;
-		default: _panic_expect(token, "a valid unary operator");
+		default: _panic_expect(CONSUME, "a valid unary operator");
 	}
 	return ret;
 }
@@ -147,33 +164,30 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 
 	while(true) {
 		switch(PEEK) {
-			case TOK_COLON: case TOK_SEMICOLON:
+			case TOK_COLON: case TOK_SEMICOLON: case TOK_CLOSE_ROUND:
 			case TOK_KW_END: case TOK_KW_ELIF: case TOK_KW_ELSE:
 				goto exit;
 			default: ;
 		}
 
 		if(atom) {
-			operator_t newop = _nth_get_unary_operator();
-			if(newop.prec == 0) {
-				ast_node_type_t node_type;
-				if(newop.token->type == TOK_IDENT) node_type = AST_IDENT;
-				else node_type = AST_LITERAL;
-				ast_node_t *node = ast_pnode_new(&ps.ast, node_type, newop.token->content);
-				vector_add(&output, &node);
+			operator_t new_op = _nth_get_unary_operator();
+			if(new_op.prec == 0) {
+				ast_node_t *new_atom = _nt_term();
+				vector_add(&output, &new_atom);
 				atom = false;
-			} else vector_add(&opstack, &newop);
+			} else vector_add(&opstack, &new_op);
 		} else {
-			operator_t newop = _nth_get_binary_operator();
-			while(opstack->count > 0 && (newop.left ?
-				((operator_t *) vector_peek(opstack))->prec < newop.prec :
-				((operator_t *) vector_peek(opstack))->prec <= newop.prec
+			operator_t new_op = _nth_get_binary_operator();
+			while(opstack->count > 0 && (new_op.left ?
+				((operator_t *) vector_peek(opstack))->prec < new_op.prec :
+				((operator_t *) vector_peek(opstack))->prec <= new_op.prec
 			)) {
-				operator_t oldop; vector_take(opstack, &oldop);
-				ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, oldop.token->content);
+				operator_t old_op; vector_take(opstack, &old_op);
+				ast_node_t *node = ast_pnode_new(&ps.ast, AST_OP_BINARY, old_op.token->content);
 				vector_add(&output, &node);
 			}
-			vector_add(&opstack, &newop);
+			vector_add(&opstack, &new_op);
 			atom = true;
 		}
 	} exit: ;
