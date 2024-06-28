@@ -6,10 +6,8 @@
 #include "common/vector.h"
 #include "lexer/lexer.h"
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 typedef enum se_variant {
 	OUTER_STMT_EXPR,
@@ -71,15 +69,8 @@ static ast_node_t *_nt_outer_stmt(void);
 static ast_node_t *_nt_inner_stmt(void);
 static ast_node_t *_nt_stmt_expr(se_variant_t variant);
 
-static ast_node_t *_nt_prec_0(void);
-static ast_node_t *_nt_prec_1(void);
-static ast_node_t *_nt_prec_2(void);
-static ast_node_t *_nt_unaries_2(void);
-static ast_node_t *_nt_prec_3(void);
-static ast_node_t *_nt_prec_4(void);
-static ast_node_t *_nt_prec_5(void);
-static ast_node_t *_nt_unaries_5(void);
-static ast_node_t *_nt_term(void);
+static ast_node_t *_nt_expr(arena_t *reused_arena);
+static ast_node_t *_nt_term(arena_t *reused_arena);
 static ast_node_t *_nt_func(ast_node_t *child);
 
 // Internal Function Defs (Non-Terminal Helpers) //
@@ -173,15 +164,14 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 
 	while(true) {
 		switch(PEEK) {
-			case PREC_0_FOLLOWS:
-				goto exit;
+			case PREC_0_FOLLOWS: goto exit;
 			default: ;
 		}
 
 		if(atom) {
 			operator_t new_op = _nth_get_unary_operator();
 			if(new_op.prec == 0) {
-				ast_node_t *new_atom = _nt_term();
+				ast_node_t *new_atom = _nt_term(arena);
 				vector_add(&output, &new_atom);
 				atom = false;
 			} else vector_add(&opstack, &new_op);
@@ -195,6 +185,7 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 			atom = true;
 		}
 	} exit: ;
+
 	if(atom) _panic_expect(CONSUME, "another expression term");
 	for(size_t i=0, size = opstack->count; i<size; i++)
 		_nth_pop_operator(&output, &opstack);
@@ -237,7 +228,7 @@ static ast_node_t *_nt_var_init(ast_node_t **parent) {
 			_nt_var_stmt_next(parent);
 			break;
 		case EXPR_FIRSTS:
-			node = _nt_prec_0();
+			node = _nt_expr(NULL);
 			_nt_var_expr_next(parent);
 			break;
 		default: _panic_expect(CONSUME, "statement or expression");
@@ -379,7 +370,7 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 			else node = _nt_outer_stmt();
 			break;
 		case EXPR_FIRSTS:
-			node = _nt_prec_0();
+			node = _nt_expr(NULL);
 			if(variant == OUTER_STMT_EXPR) _expect(TOK_SEMICOLON);
 			break;
 		default: _panic_expect(CONSUME, "statement or expression");
@@ -387,206 +378,30 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 	return node;
 }
 
-static ast_node_t *_nt_prec_0(void) {
-	// Temporary hot-wire for shunting yard rewrite
+static ast_node_t *_nt_expr(arena_t *reused_arena) {
+	arena_t *arena;
+	if(reused_arena == NULL) {
+		arena_t new_arena = arena_new(1024);
+		arena = &new_arena;
+	} else arena = reused_arena;
+
 	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case EXPR_FIRSTS: ;
-			arena_t tmp = arena_new(1024);
-			node = _nth_shunting_yard(&tmp);
-			arena_free(&tmp);
+			node = _nth_shunting_yard(arena);
 			break;
 		default: _panic(CONSUME);
 	}
-	return node;
-	/*
-	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_INTERNAL, EMPTY_STRING);
-	switch(PEEK) {
-		case TOK_KW_NOT:
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS: ;
-			node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
-			loop: switch(PEEK) { // BEGIN _nt_prec_0_()
-				case TOK_OP_ASSIGN:
-				case TOK_OP_ASSIGN_ALT: ;
-					ast_node_t *operator = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
-					node = ast_lnode_add(&ps.ast, node, operator);
-					node = ast_lnode_add(&ps.ast, node, _nt_prec_1());
-					goto loop;
-				case PREC_0_FOLLOWS:
-					break;
-				default: _panic(CONSUME);
-			} // END _nt_prec_0_()
-			for(size_t i = node->children.list.count - 1; i > 1; i -= 2) {
-				ast_node_t **left = &node->children.list.list[i - 2];
-				ast_node_t *parent = node->children.list.list[i - 1];
-				ast_node_t *right = node->children.list.list[i];
-				ast_pnode_left(parent, *left);
-				ast_pnode_right(parent, right);
-				*left = parent;
-			}
-			node = node->children.list.list[0];
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-	*/
-}
 
-static ast_node_t *_nt_prec_1(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_KW_NOT:
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			node = _nt_prec_2();
-			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
-				case TOK_KW_AND:
-				case TOK_KW_OR: ;
-					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
-					ast_pnode_left(parent, node);
-					ast_pnode_right(parent, _nt_prec_2());
-					node = parent;
-					goto loop;
-				case PREC_1_FOLLOWS:
-					break;
-				default: _panic(CONSUME);
-			} // END _nt_prec_1_()
-			break;
-		default: _panic(CONSUME);
-	}
+	if(reused_arena == NULL) arena_free(arena);
 	return node;
 }
 
-static ast_node_t *_nt_prec_2(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_KW_NOT:
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS: ;
-			node = _nt_unaries_2();
-			if(node == NULL) node = _nt_prec_3();
-			else ast_pnode_left(node, _nt_prec_3());
-			loop: switch(PEEK) { // BEGIN _nt_prec_1_()
-				case TOK_OP_COMPARE: ;
-					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
-					ast_pnode_left(parent, node);
-					ast_pnode_right(parent, _nt_prec_3());
-					node = parent;
-					goto loop;
-				case PREC_2_FOLLOWS:
-					break;
-				default: _panic(CONSUME);
-			} // END _nt_prec_2_()
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_unaries_2(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_KW_NOT:
-			node = ast_pnode_new(&ps.ast, AST_OP_UNARY, CONSUME->content);
-			break;
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_prec_3(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			node = _nt_prec_4();
-			loop: switch(PEEK) { // BEGIN _nt_prec_3_()
-				case TOK_OP_PLUS:
-				case TOK_OP_MINUS: ;
-					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
-					ast_pnode_left(parent, node);
-					ast_pnode_right(parent, _nt_prec_4());
-					node = parent;
-					goto loop;
-				case PREC_3_FOLLOWS:
-					break;
-				default: _panic(CONSUME);
-			} // END _nt_prec_3_()
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_prec_4(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS:
-			node = _nt_prec_5();
-			loop: switch(PEEK) { // BEGIN _nt_prec_4_()
-				case TOK_OP_MULT:
-				case TOK_OP_DIV:
-				case TOK_OP_MOD: ;
-					ast_node_t *parent = ast_pnode_new(&ps.ast, AST_OP_BINARY, CONSUME->content);
-					ast_pnode_left(parent, node);
-					ast_pnode_right(parent, _nt_prec_5());
-					node = parent;
-					goto loop;
-				case PREC_4_FOLLOWS:
-					break;
-				default: _panic(CONSUME);
-			} // END _nt_prec_4_()
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_prec_5(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-		case TERM_FIRSTS: ;
-			node = _nt_unaries_5();
-			if(node == NULL) node = _nt_term();
-			else ast_pnode_left(node, _nt_term());
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_unaries_5(void) {
-	ast_node_t *node = NULL;
-	switch(PEEK) {
-		case TOK_OP_PLUS:
-		case TOK_OP_MINUS:
-			node = ast_pnode_new(&ps.ast, AST_OP_UNARY, CONSUME->content);
-			break;
-		case TERM_FIRSTS:
-			break;
-		default: _panic(CONSUME);
-	}
-	return node;
-}
-
-static ast_node_t *_nt_term(void) {
+static ast_node_t *_nt_term(arena_t *reused_arena) {
 	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OPEN_ROUND: CONSUME;
-			node = _nt_prec_0();
+			node = _nt_expr(reused_arena);
 			_expect(TOK_CLOSE_ROUND);
 			break;
 		case TOK_IDENT:

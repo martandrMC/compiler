@@ -18,7 +18,7 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 	}
 
 	printf(
-		"\x1b[33m%s\t%.*s\n",
+		"\x1b[33m%-12s %.*s\n",
 		node_type_strs[root->type],
 		(int) root->content.size,
 		root->content.string
