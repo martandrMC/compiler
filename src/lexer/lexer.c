@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "hashmap.c"
+#include "keywords.c"
 
 static struct lexer_state {
 	bool reinit;

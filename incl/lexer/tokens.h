@@ -17,5 +17,5 @@
 	/* Others */ \
 	FN(IDENT) FN(LIT_NUM)
 
-#define GENERATE_ENUM(VAL) TOK_##VAL,
-#define GENERATE_STRS(VAL) #VAL,
+#define GENERATE_TOK_ENUM(VAL) TOK_##VAL,
+#define GENERATE_TOK_STRS(VAL) #VAL,

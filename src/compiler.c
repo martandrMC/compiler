@@ -7,7 +7,9 @@
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
-	assert(sizeof(char) == 1);
+	// I will keep this here for my future self to laugh at.
+	// The C99 standard guarantees chars to be of size 1.
+	//assert(sizeof(char) == 1);
 	if(argc != 2) exit(EXIT_FAILURE);
 
 	lexer_init(argv[1]);

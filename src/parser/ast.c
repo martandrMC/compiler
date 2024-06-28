@@ -17,24 +17,12 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 		memcpy(parent_prefix, last ? "⠀" : "│", BOX_CHAR_SIZE);
 	}
 
-	printf("\x1b[33m");
-	switch(root->type) {
-		case AST_BLOCK:
-			printf("BLOCK\n");
-			break;
-		case AST_IF_LIST:
-			printf("IFLIST\n");
-			break;
-		case AST_CALL:
-			printf("CALL\n");
-			break;
-		default:
-			printf(
-				"%.*s\n",
-				(int) root->content.size,
-				root->content.string
-			);
-	}
+	printf(
+		"\x1b[33m%-12s %.*s\n",
+		node_type_strs[root->type],
+		(int) root->content.size,
+		root->content.string
+	);
 
 	if(depth >= prefix->size) {
 		char *new_buffer = (char *) realloc(prefix->string, prefix->size * 2);

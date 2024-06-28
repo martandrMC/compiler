@@ -18,8 +18,11 @@ typedef struct string {
 	char *string;
 } string_t;
 
-// The canonical configuration of a string_t to indicate that it is empty.
+// The canonical configuration of a `string_t` to indicate that it is empty.
 #define EMPTY_STRING (string_t){.size=0, .string=NULL}
+
+// Convenience macro to encapsulate a C-style string literal into a `string_t`.
+#define TO_STRING(literal) (string_t){.size=(sizeof(literal)-1), .string=literal}
 
 /** Attempts to read from the given file in chunks and allocates an array on
   * the heap to exatly fit the contents of it. If allocation is unsuccessful
