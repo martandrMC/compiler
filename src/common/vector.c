@@ -36,12 +36,14 @@ void vector_add(vector_t **vector, const void *data) {
 }
 
 void vector_take(vector_t *vector, void *data) {
+	if(vector->count == 0) return;
 	// Playing it safe, data may be part of the vector
 	memmove(data, vector_peek(vector), vector->unit_size);
 	vector->count--;
 }
 
 void *vector_peek(vector_t *vector) {
+	if(vector->count == 0) return NULL;
 	size_t last = vector->count - 1;
 	return &vector->data[last * vector->unit_size];
 }

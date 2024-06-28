@@ -143,12 +143,7 @@ static operator_t _nth_get_unary_operator(void) {
 			ret.token = CONSUME;
 			ret.prec = 1;
 			break;
-		case TOK_OPEN_ROUND:
-		case TOK_IDENT:
-		case TOK_LIT_NUM:
-		case TOK_KW_TRUE:
-		case TOK_KW_FALSE:
-		case TOK_KW_NIL:
+		case TERM_FIRSTS:
 			break;
 		default: _panic_expect(CONSUME, "a valid unary operator");
 	}
@@ -159,6 +154,15 @@ static void _nth_pop_operator(vector_t **output, vector_t **opstack) {
 	operator_t old_op; vector_take(*opstack, &old_op);
 	ast_node_type_t node_type = old_op.unary ? AST_OP_UNARY : AST_OP_BINARY;
 	ast_node_t *node = ast_pnode_new(&ps.ast, node_type, old_op.token->content);
+
+	ast_node_t *tmp = NULL;
+	vector_take(*output, &tmp);
+	ast_pnode_right(node, tmp);
+	if(!old_op.unary) {
+		vector_take(*output, &tmp);
+		ast_pnode_left(node, tmp);
+	}
+
 	vector_add(output, &node);
 }
 
@@ -169,8 +173,7 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 
 	while(true) {
 		switch(PEEK) {
-			case TOK_COLON: case TOK_SEMICOLON: case TOK_CLOSE_ROUND:
-			case TOK_KW_END: case TOK_KW_ELIF: case TOK_KW_ELSE:
+			case PREC_0_FOLLOWS:
 				goto exit;
 			default: ;
 		}
@@ -193,16 +196,11 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 		}
 	} exit: ;
 	if(atom) _panic_expect(CONSUME, "another expression term");
+	for(size_t i=0, size = opstack->count; i<size; i++)
+		_nth_pop_operator(&output, &opstack);
 
-	size_t opstack_size = opstack->count;
-	for(size_t i=0; i<opstack_size; i++) _nth_pop_operator(&output, &opstack);
-
-	ast_node_t *expr = ast_lnode_new(&ps.ast, output->count, AST_INTERNAL, EMPTY_STRING);
-	for(size_t i=0; i<output->count; i++) {
-		ast_node_t *tmp = *(ast_node_t **) vector_peek_from(output, i);
-		expr = ast_lnode_add(&ps.ast, expr, tmp);
-	}
-
+	if(output->count != 1) _panic_expect(CONSUME, "a well-formed expression");
+	ast_node_t *expr; vector_take(output, &expr);
 	return expr;
 }
 
