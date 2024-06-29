@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define PEEK lexer_peek()->type
+#define CONSUME lexer_next()
+
 typedef enum se_variant {
 	OUTER_STMT_EXPR,
 	DELIM_STMT_EXPR,
@@ -35,15 +38,10 @@ static void _panic_common(token_t *problem) {
 	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
 }
 
-static void _panic(token_t *problem) {
+static void _panic(token_t *problem, const char *message) {
 	_panic_common(problem);
-	putchar('\n');
-	exit(EXIT_FAILURE);
-}
-
-static void _panic_expect(token_t *problem, const char *message) {
-	_panic_common(problem);
-	printf(", expected: %s\n", message);
+	if(message != NULL) printf(", expected: %s\n", message);
+	else printf("\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -116,7 +114,7 @@ static operator_t _nth_get_binary_operator(void) {
 		case TOK_OP_MOD:
 			ret.prec = 1;
 			break;
-		default: _panic_expect(token, "a valid binary operator");
+		default: _panic(token, "a valid binary operator");
 	}
 	return ret;
 }
@@ -136,7 +134,7 @@ static operator_t _nth_get_unary_operator(void) {
 			break;
 		case TERM_FIRSTS:
 			break;
-		default: _panic_expect(CONSUME, "a valid unary operator");
+		default: _panic(CONSUME, "a valid unary operator");
 	}
 	return ret;
 }
@@ -164,7 +162,7 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 
 	while(true) {
 		switch(PEEK) {
-			case PREC_0_FOLLOWS: goto exit;
+			case EXPR_FOLLOWS: goto exit;
 			default: ;
 		}
 
@@ -186,11 +184,11 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 		}
 	} exit: ;
 
-	if(atom) _panic_expect(CONSUME, "another expression term");
+	if(atom) _panic(CONSUME, "another expression term");
 	for(size_t i=0, size = opstack->count; i<size; i++)
 		_nth_pop_operator(&output, &opstack);
 
-	if(output->count != 1) _panic_expect(CONSUME, "a well-formed expression");
+	if(output->count != 1) _panic(CONSUME, "a well-formed expression");
 	ast_node_t *expr; vector_take(output, &expr);
 	return expr;
 }
@@ -215,7 +213,7 @@ static ast_node_t *_nt_block(void) {
 		case TOK_KW_ELSE:
 		case TOK_EOF:
 			break;
-		default: _panic_expect(CONSUME, "\"var\", statement or expression");
+		default: _panic(CONSUME, "\"var\", statement or expression");
 	}
 	return node;
 }
@@ -231,7 +229,7 @@ static ast_node_t *_nt_var_init(ast_node_t **parent) {
 			node = _nt_expr(NULL);
 			_nt_var_expr_next(parent);
 			break;
-		default: _panic_expect(CONSUME, "statement or expression");
+		default: _panic(CONSUME, "statement or expression");
 	}
 	return node;
 }
@@ -243,7 +241,7 @@ static void _nt_var_expr_next(ast_node_t **parent) {
 			break;
 		case TOK_SEMICOLON: CONSUME;
 			break;
-		default: _panic_expect(CONSUME, "\",\" or \";\"");
+		default: _panic(CONSUME, "\",\" or \";\"");
 	}
 }
 
@@ -260,7 +258,7 @@ static void _nt_var_stmt_next(ast_node_t **parent) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
 			break;
-		default: _panic_expect(CONSUME, "\",\" or \"end\" or EOF or block member");
+		default: _panic(CONSUME, "\",\" or \"end\" or EOF or block member");
 	}
 }
 
@@ -270,7 +268,7 @@ static ast_node_t *_nt_type(void) {
 		case TOK_TYPE_INT:
 		case TOK_TYPE_BOOL:
 			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
-		default: _panic_expect(CONSUME, "\"nat\" or \"int\" or \"bool\"");
+		default: _panic(CONSUME, "\"nat\" or \"int\" or \"bool\"");
 	}
 	return NULL;
 }
@@ -301,7 +299,7 @@ static ast_node_t *_nt_stmt_common(void) {
 					break;
 				case TOK_KW_END:
 					break;
-				default: _panic_expect(CONSUME, "\"else\" or \"end\"");
+				default: _panic(CONSUME, "\"else\" or \"end\"");
 			} // END _nt_else()
 			_expect(TOK_KW_END);
 			break;
@@ -312,7 +310,7 @@ static ast_node_t *_nt_stmt_common(void) {
 			ast_pnode_right(node, _nt_stmt_expr(INNER_STMT_EXPR));
 			_expect(TOK_KW_END);
 			break;
-		default: _panic_expect(CONSUME, "\"if\" or \"while\"");
+		default: _panic(CONSUME, "\"if\" or \"while\"");
 	}
 	return node;
 }
@@ -335,7 +333,7 @@ static ast_node_t *_nt_outer_stmt(void) {
 		case TOK_KW_WHILE:
 			node = _nt_stmt_common();
 			break;
-		default: _panic_expect(CONSUME, "statement");
+		default: _panic(CONSUME, "statement");
 	}
 	return node;
 }
@@ -357,7 +355,7 @@ static ast_node_t *_nt_inner_stmt(void) {
 		case TOK_KW_WHILE:
 			node = _nt_stmt_common();
 			break;
-		default: _panic_expect(CONSUME, "statement");
+		default: _panic(CONSUME, "statement");
 	}
 	return node;
 }
@@ -373,7 +371,7 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 			node = _nt_expr(NULL);
 			if(variant == OUTER_STMT_EXPR) _expect(TOK_SEMICOLON);
 			break;
-		default: _panic_expect(CONSUME, "statement or expression");
+		default: _panic(CONSUME, "statement or expression");
 	}
 	return node;
 }
@@ -387,10 +385,10 @@ static ast_node_t *_nt_expr(arena_t *reused_arena) {
 
 	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case EXPR_FIRSTS: ;
+		case EXPR_FIRSTS:
 			node = _nth_shunting_yard(arena);
 			break;
-		default: _panic(CONSUME);
+		default: _panic(CONSUME, "a valid unary operator or term");
 	}
 
 	if(reused_arena == NULL) arena_free(arena);
@@ -411,9 +409,9 @@ static ast_node_t *_nt_term(arena_t *reused_arena) {
 					node = _nt_func(node);
 					_expect(TOK_CLOSE_ROUND);
 					break;
-				case PREC_5_FOLLOWS:
+				case TERM_FOLLOWS:
 					break;
-				default: _panic(CONSUME);
+				default: _panic(CONSUME, "a function call");
 			} // END _nt_term_()
 			break;
 		case TOK_LIT_NUM:
@@ -422,7 +420,7 @@ static ast_node_t *_nt_term(arena_t *reused_arena) {
 		case TOK_KW_NIL:
 			node = ast_pnode_new(&ps.ast, AST_LITERAL, CONSUME->content);
 			break;
-		default: _panic(CONSUME);
+		default: _panic(CONSUME, "a literal, an identifier, or a subexpression.");
 	}
 	return node;
 }
@@ -440,12 +438,12 @@ static ast_node_t *_nt_func(ast_node_t *child) {
 					goto loop;
 				case TOK_CLOSE_ROUND:
 					break;
-				default: _panic(CONSUME);
+				default: _panic(CONSUME, "\",\" or \")\"");
 			}
 			break; // END _nt_func_()
 		case TOK_CLOSE_ROUND:
 			break;
-		default: _panic(CONSUME);
+		default: _panic(CONSUME, "a valid function argument");
 	}
 	return node;
 }
@@ -463,7 +461,7 @@ void parser_start(void) {
 			_expect(TOK_EOF);
 		case TOK_EOF:
 			break;
-		default: _panic_expect(CONSUME, "\"var\" statement or expression or EOF");
+		default: _panic(CONSUME, "\"var\" statement or expression or EOF");
 	}
 	if(root == NULL) printf("The file is empty.\n");
 	else ast_tree_visualize(root);
