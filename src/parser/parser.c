@@ -57,6 +57,7 @@ static token_t *_expect(token_type_t type) {
 
 // Internal Function Decls (Non-Terminals) //
 
+/*
 static ast_node_t *_nt_block(void);
 static ast_node_t *_nt_var_init(ast_node_t **parent);
 static void _nt_var_expr_next(ast_node_t **parent);
@@ -66,6 +67,7 @@ static ast_node_t *_nt_stmt_common(void);
 static ast_node_t *_nt_outer_stmt(void);
 static ast_node_t *_nt_inner_stmt(void);
 static ast_node_t *_nt_stmt_expr(se_variant_t variant);
+*/
 
 static ast_node_t *_nt_expr(arena_t *reused_arena);
 static ast_node_t *_nt_term(arena_t *reused_arena);
@@ -73,6 +75,7 @@ static ast_node_t *_nt_func(ast_node_t *child);
 
 // Internal Function Defs (Non-Terminal Helpers) //
 
+/*
 static void _nth_vardecl(ast_node_t **parent) {
 	string_t ident_str = _expect(TOK_IDENT)->content;
 	string_t assign_str = _expect(TOK_OP_ASSIGN)->content;
@@ -81,6 +84,7 @@ static void _nth_vardecl(ast_node_t **parent) {
 	ast_pnode_left(assign, ast_pnode_new(&ps.ast, AST_IDENT, ident_str));
 	ast_pnode_right(assign, _nt_var_init(parent));
 }
+*/
 
 typedef struct operator {
 	token_t *token;
@@ -195,6 +199,7 @@ static ast_node_t *_nth_shunting_yard(arena_t *arena) {
 
 // Internal Functions Defs (Non-Terminals) //
 
+/*
 static ast_node_t *_nt_block(void) {
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 	loop: switch(PEEK) {
@@ -375,6 +380,7 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 	}
 	return node;
 }
+*/
 
 static ast_node_t *_nt_expr(arena_t *reused_arena) {
 	arena_t *arena;
@@ -431,10 +437,10 @@ static ast_node_t *_nt_func(ast_node_t *child) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, _nt_stmt_expr(DELIM_STMT_EXPR));
+			node = ast_lnode_add(&ps.ast, node, _nt_expr(NULL)); // REDO: Allow statements
 			loop: switch(PEEK) { // BEGIN _nt_func_()
 				case TOK_COMMA: CONSUME;
-					node = ast_lnode_add(&ps.ast, node, _nt_stmt_expr(DELIM_STMT_EXPR));
+					node = ast_lnode_add(&ps.ast, node, _nt_expr(NULL)); // REDO: Allow statements
 					goto loop;
 				case TOK_CLOSE_ROUND:
 					break;
@@ -457,7 +463,8 @@ void parser_start(void) {
 		case TOK_KW_VAR:
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			root = _nt_block();
+			root = _nt_expr(NULL); // REDO: Blocks
+			_expect(TOK_SEMICOLON);
 			_expect(TOK_EOF);
 		case TOK_EOF:
 			break;
