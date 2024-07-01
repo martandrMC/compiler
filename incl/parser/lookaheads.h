@@ -4,13 +4,13 @@
 	/*case*/ TOK_KW_DO: \
 	case TOK_KW_IF: \
 	case TOK_KW_WHILE: \
-	case TOK_KW_RETURN//:
+	case TOK_KW_RETURN/*:*/
 
 #define EXPR_FIRSTS \
 	/*case*/ TOK_OP_PLUS: \
 	case TOK_OP_MINUS: \
 	case TOK_KW_NOT: \
-	case TERM_FIRSTS//:
+	case TERM_FIRSTS/*:*/
 
 #define TERM_FIRSTS \
 	/*case*/ TOK_OPEN_ROUND: \
@@ -18,7 +18,7 @@
 	case TOK_LIT_NUM: \
 	case TOK_KW_TRUE: \
 	case TOK_KW_FALSE: \
-	case TOK_KW_NIL//:
+	case TOK_KW_NIL/*:*/
 
 #define EXPR_FOLLOWS \
 	/*case*/ TOK_COMMA: \
@@ -27,7 +27,7 @@
 	case TOK_CLOSE_ROUND: \
 	case TOK_KW_END: \
 	case TOK_KW_ELIF: \
-	case TOK_KW_ELSE//:
+	case TOK_KW_ELSE/*:*/
 
 #define TERM_FOLLOWS \
 	/*case*/ TOK_OP_MULT: \
@@ -40,4 +40,4 @@
 	case TOK_KW_OR: \
 	case TOK_OP_ASSIGN: \
 	case TOK_OP_ASSIGN_ALT: \
-	case EXPR_FOLLOWS//:
+	case EXPR_FOLLOWS/*:*/
