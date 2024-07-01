@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define BOX_CHAR_SIZE 4
-static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix, bool last) {
+static void visualizer_walker(ast_node_t *root, size_t depth, string_t *prefix, bool last) {
 	for(size_t i=0; i<depth; i+=4) printf("\x1b[0;32m%.*s ", BOX_CHAR_SIZE, &prefix->string[i]);
 	if(depth > 0) {
 		char *parent_prefix = &prefix->string[depth - BOX_CHAR_SIZE];
@@ -35,11 +35,11 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 			bool is_last = (root->children.pair.right == NULL);
 			char *extra_prefix = (is_last ? "└" : "├");
 			memcpy(&prefix->string[depth], extra_prefix, BOX_CHAR_SIZE);
-			_ast_tree_visualize(root->children.pair.left, depth + BOX_CHAR_SIZE, prefix, is_last);
+			visualizer_walker(root->children.pair.left, depth + BOX_CHAR_SIZE, prefix, is_last);
 		}
 		if(root->children.pair.right != NULL) {
 			memcpy(&prefix->string[depth], "└", BOX_CHAR_SIZE);
-			_ast_tree_visualize(root->children.pair.right, depth + BOX_CHAR_SIZE, prefix, true);
+			visualizer_walker(root->children.pair.right, depth + BOX_CHAR_SIZE, prefix, true);
 		}
 	} else {
 		size_t child_count = root->children.list.count;
@@ -50,7 +50,7 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 
 			ast_node_t *child = root->children.list.list[i];
 			if(child == NULL) continue;
-			_ast_tree_visualize(child, depth + BOX_CHAR_SIZE, prefix, is_last);
+			visualizer_walker(child, depth + BOX_CHAR_SIZE, prefix, is_last);
 		}
 	}
 }
@@ -61,7 +61,7 @@ static void _ast_tree_visualize(ast_node_t *root, size_t depth, string_t *prefix
 void ast_tree_visualize(ast_node_t *root) {
 	char *initial_buffer  = (char *) calloc(INITIAL_BUFFER_SIZE, sizeof(char));
 	string_t prefix = {.size = INITIAL_BUFFER_SIZE, .string = initial_buffer};
-	_ast_tree_visualize(root, 0, &prefix, false); printf("\x1b[0m");
+	visualizer_walker(root, 0, &prefix, false); printf("\x1b[0m");
 	free(prefix.string);
 }
 

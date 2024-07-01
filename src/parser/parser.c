@@ -24,7 +24,7 @@ static struct parser_state {
 
 // Internal Functions (Helpers) //
 
-static void _panic_common(token_t *problem) {
+static void panic_common(token_t *problem) {
 	size_t line = 1;
 	char *file_base = lexer_get_src().string;
 	char *problem_base = problem->content.string;
@@ -38,17 +38,17 @@ static void _panic_common(token_t *problem) {
 	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
 }
 
-static void _panic(token_t *problem, const char *message) {
-	_panic_common(problem);
+static void panic(token_t *problem, const char *message) {
+	panic_common(problem);
 	if(message != NULL) printf(", expected: %s\n", message);
 	else printf("\n");
 	exit(EXIT_FAILURE);
 }
 
-static token_t *_expect(token_type_t type) {
+static token_t *expect(token_type_t type) {
 	token_t *next = CONSUME;
 	if(next->type != type) {
-		_panic_common(next);
+		panic_common(next);
 		printf(", expected: %s\n", token_type_strs[type]);
 		exit(EXIT_FAILURE);
 	}
@@ -57,21 +57,11 @@ static token_t *_expect(token_type_t type) {
 
 // Internal Function Decls (Non-Terminals) //
 
-/*
-static ast_node_t *_nt_block(void);
-static ast_node_t *_nt_var_init(ast_node_t **parent);
-static void _nt_var_expr_next(ast_node_t **parent);
-static void _nt_var_stmt_next(ast_node_t **parent);
-static ast_node_t *_nt_type(void);
-static ast_node_t *_nt_stmt_common(void);
-static ast_node_t *_nt_outer_stmt(void);
-static ast_node_t *_nt_inner_stmt(void);
-static ast_node_t *_nt_stmt_expr(se_variant_t variant);
-*/
+static ast_node_t *parse_block(void);
 
-static ast_node_t *_expr(arena_t *reused_arena);
-static ast_node_t *_expr_term(arena_t *reused_arena);
-static ast_node_t *_func_args(ast_node_t *child);
+static ast_node_t *parse_expr(arena_t *reused_arena);
+static ast_node_t *parse_term(arena_t *reused_arena);
+static ast_node_t *parse_func(ast_node_t *child);
 
 // Internal Function Defs (Non-Terminal Helpers) //
 
@@ -93,7 +83,7 @@ typedef struct operator {
 	bool left;
 } operator_t;
 
-static operator_t _sy_get_binary_operator(void) {
+static operator_t sy_get_binop(void) {
 	token_t *token = CONSUME;
 	operator_t ret = {.token = token, .prec = 0, .unary = false, .left = false};
 	switch(token->type) {
@@ -118,12 +108,12 @@ static operator_t _sy_get_binary_operator(void) {
 		case TOK_OP_MOD:
 			ret.prec = 1;
 			break;
-		default: _panic(token, "a valid binary operator");
+		default: panic(token, "a valid binary operator");
 	}
 	return ret;
 }
 
-static operator_t _sy_get_unary_operator(void) {
+static operator_t sy_get_unop(void) {
 	//token_t *token = CONSUME;
 	operator_t ret = {.token = NULL, .prec = 0, .unary = true, .left = true};
 	switch(PEEK) {
@@ -138,12 +128,12 @@ static operator_t _sy_get_unary_operator(void) {
 			break;
 		case TERM_FIRSTS:
 			break;
-		default: _panic(CONSUME, "a valid unary operator");
+		default: panic(CONSUME, "a valid unary operator");
 	}
 	return ret;
 }
 
-static void _sy_pop_operator(vector_t **output, vector_t **opstack) {
+static void sy_pop_operator(vector_t **output, vector_t **opstack) {
 	operator_t old_op; vector_take(*opstack, &old_op);
 	ast_node_type_t node_type = old_op.unary ? AST_OP_UNARY : AST_OP_BINARY;
 	ast_node_t *node = ast_pnode_new(&ps.ast, node_type, old_op.token->content);
@@ -159,7 +149,7 @@ static void _sy_pop_operator(vector_t **output, vector_t **opstack) {
 	vector_add(output, &node);
 }
 
-static ast_node_t *_shunting_yard(arena_t *arena) {
+static ast_node_t *shunting_yard(arena_t *arena) {
 	bool atom = true;
 	vector_t *output = vector_new(arena, sizeof(ast_node_t *), 16);
 	vector_t *opstack = vector_new(arena, sizeof(operator_t), 16);
@@ -171,43 +161,43 @@ static ast_node_t *_shunting_yard(arena_t *arena) {
 		}
 
 		if(atom) {
-			operator_t new_op = _sy_get_unary_operator();
+			operator_t new_op = sy_get_unop();
 			if(new_op.prec == 0) {
-				ast_node_t *new_atom = _expr_term(arena);
+				ast_node_t *new_atom = parse_term(arena);
 				vector_add(&output, &new_atom);
 				atom = false;
 			} else vector_add(&opstack, &new_op);
 		} else {
-			operator_t new_op = _sy_get_binary_operator();
+			operator_t new_op = sy_get_binop();
 			while(opstack->count > 0 && (new_op.left ?
 				((operator_t *) vector_peek(opstack))->prec < new_op.prec :
 				((operator_t *) vector_peek(opstack))->prec <= new_op.prec
-			)) _sy_pop_operator(&output, &opstack);
+			)) sy_pop_operator(&output, &opstack);
 			vector_add(&opstack, &new_op);
 			atom = true;
 		}
 	} exit: ;
 
-	if(atom) _panic(CONSUME, "another expression term");
+	if(atom) panic(CONSUME, "another expression term");
 	for(size_t i=0, size = opstack->count; i<size; i++)
-		_sy_pop_operator(&output, &opstack);
+		sy_pop_operator(&output, &opstack);
 
-	if(output->count != 1) _panic(CONSUME, "a well-formed expression");
+	if(output->count != 1) panic(CONSUME, "a well-formed expression");
 	ast_node_t *expr; vector_take(output, &expr);
 	return expr;
 }
 
 // Internal Functions Defs (Non-Terminals) //
 
-static ast_node_t *_block(void) {
+static ast_node_t *parse_block(void) {
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 	while(true) switch(PEEK) {
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, _expr(NULL));
-			_expect(TOK_SEMICOLON);
+			node = ast_lnode_add(&ps.ast, node, parse_expr(NULL));
+			expect(TOK_SEMICOLON);
 			break;
 		case TOK_EOF: goto exit;
-		default: _panic(CONSUME, "a statement or an expression");
+		default: panic(CONSUME, "a statement or an expression");
 	} exit: ;
 	return node;
 }
@@ -395,34 +385,34 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 }
 */
 
-static ast_node_t *_expr(arena_t *reused_arena) {
+static ast_node_t *parse_expr(arena_t *reused_arena) {
 	arena_t *arena;
 	if(reused_arena == NULL) {
 		arena_t new_arena = arena_new(1024);
 		arena = &new_arena;
 	} else arena = reused_arena;
-	ast_node_t *node = _shunting_yard(arena);;
+	ast_node_t *node = shunting_yard(arena);;
 	if(reused_arena == NULL) arena_free(arena);
 	return node;
 }
 
-static ast_node_t *_expr_term(arena_t *reused_arena) {
+static ast_node_t *parse_term(arena_t *reused_arena) {
 	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OPEN_ROUND: CONSUME;
-			node = _expr(reused_arena);
-			_expect(TOK_CLOSE_ROUND);
+			node = parse_expr(reused_arena);
+			expect(TOK_CLOSE_ROUND);
 			break;
 		case TOK_IDENT:
 			node = ast_pnode_new(&ps.ast, AST_IDENT, CONSUME->content);
 			switch(PEEK) { // BEGIN _nt_term_()
 				case TOK_OPEN_ROUND: CONSUME;
-					node = _func_args(node);
-					_expect(TOK_CLOSE_ROUND);
+					node = parse_func(node);
+					expect(TOK_CLOSE_ROUND);
 					break;
 				case TERM_FOLLOWS:
 					break;
-				default: _panic(CONSUME, "a function call");
+				default: panic(CONSUME, "a function call");
 			} // END _nt_term_()
 			break;
 		case TOK_LIT_NUM:
@@ -431,30 +421,30 @@ static ast_node_t *_expr_term(arena_t *reused_arena) {
 		case TOK_KW_NIL:
 			node = ast_pnode_new(&ps.ast, AST_LITERAL, CONSUME->content);
 			break;
-		default: _panic(CONSUME, "a literal, an identifier, or a subexpression.");
+		default: panic(CONSUME, "a literal, an identifier, or a subexpression.");
 	}
 	return node;
 }
 
-static ast_node_t *_func_args(ast_node_t *child) {
+static ast_node_t *parse_func(ast_node_t *child) {
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_CALL, EMPTY_STRING);
 	node = ast_lnode_add(&ps.ast, node, child);
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, _expr(NULL)); // REDO: Allow statements
+			node = ast_lnode_add(&ps.ast, node, parse_expr(NULL)); // REDO: Allow statements
 			loop: switch(PEEK) { // BEGIN _nt_func_()
 				case TOK_COMMA: CONSUME;
-					node = ast_lnode_add(&ps.ast, node, _expr(NULL)); // REDO: Allow statements
+					node = ast_lnode_add(&ps.ast, node, parse_expr(NULL)); // REDO: Allow statements
 					goto loop;
 				case TOK_CLOSE_ROUND:
 					break;
-				default: _panic(CONSUME, "\",\" or \")\"");
+				default: panic(CONSUME, "\",\" or \")\"");
 			}
 			break; // END _nt_func_()
 		case TOK_CLOSE_ROUND:
 			break;
-		default: _panic(CONSUME, "a valid function argument");
+		default: panic(CONSUME, "a valid function argument");
 	}
 	return node;
 }
@@ -463,7 +453,7 @@ static ast_node_t *_func_args(ast_node_t *child) {
 
 void parser_start(void) {
 	ps.ast = ast_tree_new();
-	ast_node_t *root = (PEEK == TOK_EOF ? NULL : _block());
+	ast_node_t *root = (PEEK == TOK_EOF ? NULL : parse_block());
 	if(root == NULL) printf("The file is empty.\n");
 	else ast_tree_visualize(root);
 	ast_tree_free(&ps.ast);
