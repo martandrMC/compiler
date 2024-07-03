@@ -5,11 +5,11 @@
 // Start symbol expands to BLOCK EOF
 
 BLOCK ::= var TYPE id = VAR_INIT BLOCK
-BLOCK ::= OUTER_STMT_EXPR BLOCK
+BLOCK ::= STMT_EXPR' BLOCK
 BLOCK ::= ''
 
-VAR_INIT ::= OUTER_STMT VAR_STMT_NEXT
-VAR_INIT ::= PREC_0 VAR_EXPR_NEXT
+VAR_INIT ::= STMT VAR_STMT_NEXT
+VAR_INIT ::= EXPR VAR_EXPR_NEXT
 
 VAR_EXPR_NEXT ::= , id = VAR_INIT
 VAR_EXPR_NEXT ::= ;
@@ -20,80 +20,37 @@ TYPE ::= nat
 TYPE ::= int
 TYPE ::= bool
 
-STMT_COMMON ::= if DELIM_STMT_EXPR : INNER_STMT_EXPR ELSE end
-STMT_COMMON ::= while DELIM_STMT_EXPR : INNER_STMT_EXPR end
+// Return is inaccurate, the semicolon is omitted from expressions
+// when inside statements (with the exception of blocks)
+STMT ::= while STMT_EXPR WHILE
+STMT ::= if STMT_EXPR IF
+STMT ::= return STMT_EXPR'
+STMT ::= do BLOCK end
 
-ELSE ::= else INNER_STMT_EXPR
-ELSE ::= elif DELIM_STMT_EXPR : INNER_STMT_EXPR ELSE
-ELSE ::= ''
+WHILE ::= : STMT_EXPR end
+WHILE ::= do BLOCK end
 
-OUTER_STMT ::= do BLOCK end
-OUTER_STMT ::= return OUTER_STMT_EXPR
-OUTER_STMT ::= STMT_COMMON
+IF ::= : STMT_EXPR ELIF
+IF ::= do BLOCK ELIF
+ELIF ::= elif STMT_EXPR IF
+ELIF ::= else IF
+ELIF ::= end
 
-INNER_STMT ::= do BLOCK
-INNER_STMT ::= return INNER_STMT_EXPR
-INNER_STMT ::= STMT_COMMON
-
-OUTER_STMT_EXPR ::= OUTER_STMT
-OUTER_STMT_EXPR ::= PREC_0 ;
-DELIM_STMT_EXPR ::= OUTER_STMT
-DELIM_STMT_EXPR ::= PREC_0
-INNER_STMT_EXPR ::= INNER_STMT
-INNER_STMT_EXPR ::= PREC_0
+STMT_EXPR ::= STMT
+STMT_EXPR ::= EXPR
+STMT_EXPR' ::= STMT
+STMT_EXPR' ::= EXPR ;
 
 ================================
 
-PREC_0 ::= PREC_1 PREC_0'
-PREC_0' ::= = PREC_1 PREC_0'
-PREC_0' ::= ASSIGN_ALT PREC_1 PREC_0'
-PREC_0' ::= ''
+// Shunting Yard Simulation
+EXPR ::= ATOM EXPR'
+EXPR' ::= bop ATOM EXPR'
+EXPR' ::= ''
+ATOM :: uop ATOM
+ATOM ::= TERM
 
-// The same token
-ASSIGN_ALT ::= +=
-ASSIGN_ALT ::= -=
-ASSIGN_ALT ::= *=
-ASSIGN_ALT ::= /=
-ASSIGN_ALT ::= %=
-
-PREC_1 ::= PREC_2 PREC_1'
-PREC_1' ::= and PREC_2 PREC_1'
-PREC_1' ::= or PREC_2 PREC_1'
-PREC_1' ::= ''
-
-PREC_2 ::= UNARIES_2 PREC_3 PREC_2'
-PREC_2' ::= COMPARE PREC_3 PREC_2'
-PREC_2' ::= ''
-
-// The same token
-COMPARE ::= <
-COMPARE ::= <=
-COMPARE ::= >
-COMPARE ::= >=
-COMPARE ::= <>
-COMPARE ::= ==
-
-UNARIES_2 ::= not
-UNARIES_2 ::= ''
-
-PREC_3 ::= PREC_4 PREC_3'
-PREC_3' ::= + PREC_4 PREC_3'
-PREC_3' ::= - PREC_4 PREC_3'
-PREC_3' ::= ''
-
-PREC_4 ::= PREC_5 PREC_4'
-PREC_4' ::= * PREC_5 PREC_4'
-PREC_4' ::= / PREC_5 PREC_4'
-PREC_4' ::= % PREC_5 PREC_4'
-PREC_4' ::= ''
-
-PREC_5 ::= UNARIES_5 TERM
-
-UNARIES_5 ::= +
-UNARIES_5 ::= -
-UNARIES_5 ::= ''
-
-TERM ::= ( PREC_0 )
+TERM ::= ( EXPR )
 TERM ::= id TERM'
 TERM ::= num
 TERM ::= true
@@ -102,7 +59,7 @@ TERM ::= nil
 TERM' ::= ( FUNC )
 TERM' ::= ''
 
-FUNC ::= DELIM_STMT_EXPR FUNC'
+FUNC ::= STMT_EXPR FUNC'
 FUNC ::= ''
-FUNC' ::= , DELIM_STMT_EXPR FUNC'
+FUNC' ::= , STMT_EXPR FUNC'
 FUNC' ::= ''

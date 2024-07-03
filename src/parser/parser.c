@@ -58,8 +58,9 @@ static token_t *expect(token_type_t type) {
 // Internal Function Decls (Non-Terminals) //
 
 static ast_node_t *parse_block(void);
+static ast_node_t *parse_statement(bool inner);
 
-static ast_node_t *parse_expr(arena_t *reused_arena);
+static ast_node_t *parse_expression(arena_t *reused_arena);
 static ast_node_t *parse_term(arena_t *reused_arena);
 static ast_node_t *parse_func(ast_node_t *child);
 
@@ -187,18 +188,72 @@ static ast_node_t *shunting_yard(arena_t *arena) {
 	return expr;
 }
 
+static ast_node_t *statement_or_expression(bool inner_stmt, bool sem_expr) {
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case STMT_FIRSTS:
+			node = parse_statement(inner_stmt);
+			break;
+		case EXPR_FIRSTS:
+			node = parse_expression(NULL);
+			if(sem_expr) expect(TOK_SEMICOLON);
+			break;
+		default: panic(CONSUME, "statement or expression");
+	}
+	return node;
+}
+
+static ast_node_t *enclosed_block(bool with_end) {
+	string_t content = expect(TOK_KW_DO)->content;
+	ast_node_t *node = parse_block();
+	node->content = content;
+	if(with_end) expect(TOK_KW_END);
+	return node;
+}
+
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *parse_block(void) {
 	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 	while(true) switch(PEEK) {
+		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, parse_expr(NULL));
-			expect(TOK_SEMICOLON);
+			node = statement_or_expression(false, true);
 			break;
-		case TOK_EOF: goto exit;
+		case TOK_EOF:
+		case TOK_KW_END:
+			goto exit;
 		default: panic(CONSUME, "a statement or an expression");
 	} exit: ;
+	return node;
+}
+
+static ast_node_t *parse_statement(bool inner_stmt) {
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case TOK_KW_DO:
+			node = enclosed_block(true);
+			break;
+		case TOK_KW_RETURN:
+			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			ast_pnode_left(node, statement_or_expression(inner_stmt, !inner_stmt));
+			break;
+		case TOK_KW_WHILE:
+			node = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
+			ast_pnode_left(node, statement_or_expression(true, false));
+			switch(PEEK) {
+				case TOK_COLON: CONSUME;
+					ast_pnode_right(node, statement_or_expression(true, false));
+					expect(TOK_KW_END);
+					break;
+				case TOK_KW_DO:
+					ast_pnode_right(node, enclosed_block(true));
+					break;
+				default: panic(CONSUME, "\":\" or inline block");
+			}
+			break;
+		default: panic(CONSUME, "a statement");
+	}
 	return node;
 }
 
@@ -385,7 +440,7 @@ static ast_node_t *_nt_stmt_expr(se_variant_t variant) {
 }
 */
 
-static ast_node_t *parse_expr(arena_t *reused_arena) {
+static ast_node_t *parse_expression(arena_t *reused_arena) {
 	arena_t *arena;
 	if(reused_arena == NULL) {
 		arena_t new_arena = arena_new(1024);
@@ -400,7 +455,7 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 	ast_node_t *node = NULL;
 	switch(PEEK) {
 		case TOK_OPEN_ROUND: CONSUME;
-			node = parse_expr(reused_arena);
+			node = parse_expression(reused_arena);
 			expect(TOK_CLOSE_ROUND);
 			break;
 		case TOK_IDENT:
@@ -432,10 +487,10 @@ static ast_node_t *parse_func(ast_node_t *child) {
 	switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, parse_expr(NULL)); // REDO: Allow statements
+			node = ast_lnode_add(&ps.ast, node, parse_expression(NULL)); // REDO: Allow statements
 			loop: switch(PEEK) { // BEGIN _nt_func_()
 				case TOK_COMMA: CONSUME;
-					node = ast_lnode_add(&ps.ast, node, parse_expr(NULL)); // REDO: Allow statements
+					node = ast_lnode_add(&ps.ast, node, parse_expression(NULL)); // REDO: Allow statements
 					goto loop;
 				case TOK_CLOSE_ROUND:
 					break;

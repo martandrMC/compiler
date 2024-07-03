@@ -25,6 +25,7 @@
 	case TOK_COLON: \
 	case TOK_SEMICOLON: \
 	case TOK_CLOSE_ROUND: \
+	case TOK_KW_DO: \
 	case TOK_KW_END: \
 	case TOK_KW_ELIF: \
 	case TOK_KW_ELSE/*:*/
