@@ -22,18 +22,18 @@ TYPE ::= bool
 
 // Return is inaccurate, the semicolon is omitted from expressions
 // when inside statements (with the exception of blocks)
-STMT ::= while STMT_EXPR WHILE
+STMT ::= while STMT_EXPR CONTENT
 STMT ::= if STMT_EXPR IF
 STMT ::= return STMT_EXPR'
 STMT ::= do BLOCK end
 
-WHILE ::= : STMT_EXPR end
-WHILE ::= do BLOCK end
+CONTENT ::= : STMT_EXPR end
+CONTENT ::= do BLOCK end
 
 IF ::= : STMT_EXPR ELIF
 IF ::= do BLOCK ELIF
 ELIF ::= elif STMT_EXPR IF
-ELIF ::= else IF
+ELIF ::= else CONTENT
 ELIF ::= end
 
 STMT_EXPR ::= STMT

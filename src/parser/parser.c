@@ -211,6 +211,21 @@ static ast_node_t *enclosed_block(bool with_end) {
 	return node;
 }
 
+static ast_node_t *statement_content(bool with_end) {
+	ast_node_t *node = NULL;
+	switch(PEEK) {
+		case TOK_COLON: CONSUME;
+			node = statement_or_expression(true, false);
+			if(with_end) expect(TOK_KW_END);
+			break;
+		case TOK_KW_DO:
+			node = enclosed_block(true);
+			break;
+		default: panic(CONSUME, "\":\" or inline block");
+	}
+	return node;
+}
+
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *parse_block(void) {
@@ -218,7 +233,7 @@ static ast_node_t *parse_block(void) {
 	while(true) switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = statement_or_expression(false, true);
+			node = ast_lnode_add(&ps.ast, node, statement_or_expression(false, true));
 			break;
 		case TOK_EOF:
 		case TOK_KW_END:
@@ -241,15 +256,20 @@ static ast_node_t *parse_statement(bool inner_stmt) {
 		case TOK_KW_WHILE:
 			node = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
 			ast_pnode_left(node, statement_or_expression(true, false));
-			switch(PEEK) {
-				case TOK_COLON: CONSUME;
-					ast_pnode_right(node, statement_or_expression(true, false));
-					expect(TOK_KW_END);
-					break;
-				case TOK_KW_DO:
-					ast_pnode_right(node, enclosed_block(true));
-					break;
-				default: panic(CONSUME, "\":\" or inline block");
+			ast_pnode_right(node, statement_content(true));
+			break;
+		case TOK_KW_IF:
+			node = ast_lnode_new(&ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
+			for(bool else_next = false; ; ) {
+				ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+				if(!else_next) ast_pnode_left(branch, statement_or_expression(true, false));
+				ast_pnode_right(branch, statement_content(false));
+				node = ast_lnode_add(&ps.ast, node, branch);
+
+				if(else_next) break;
+				token_type_t next = PEEK;
+				if(next == TOK_KW_ELSE) else_next = true;
+				else if(next != TOK_KW_ELIF) break;
 			}
 			break;
 		default: panic(CONSUME, "a statement");
