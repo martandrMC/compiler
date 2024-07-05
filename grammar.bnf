@@ -4,21 +4,23 @@
 
 // Start symbol expands to BLOCK EOF
 
-BLOCK ::= var TYPE id = VAR_INIT BLOCK
+BLOCK ::= var id TYPE = VAR_INIT BLOCK
 BLOCK ::= STMT_EXPR' BLOCK
 BLOCK ::= ''
 
 VAR_INIT ::= STMT VAR_STMT_NEXT
 VAR_INIT ::= EXPR VAR_EXPR_NEXT
 
-VAR_EXPR_NEXT ::= , id = VAR_INIT
+VAR_EXPR_NEXT ::= , id TYPE = VAR_INIT
 VAR_EXPR_NEXT ::= ;
-VAR_STMT_NEXT ::= , id = VAR_INIT
+VAR_STMT_NEXT ::= , id TYPE = VAR_INIT
 VAR_STMT_NEXT ::= ''
 
-TYPE ::= nat
-TYPE ::= int
-TYPE ::= bool
+TYPE ::= : TYPE'
+TYPE ::= ''
+TYPE' ::= nat
+TYPE' ::= int
+TYPE' ::= bool
 
 // Return is inaccurate, the semicolon is omitted from expressions
 // when inside statements (with the exception of blocks)
