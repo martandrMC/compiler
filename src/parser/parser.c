@@ -58,6 +58,7 @@ static token_t *expect(token_type_t type) {
 // Internal Function Decls (Non-Terminals) //
 
 static ast_node_t *parse_block(void);
+static ast_node_t *parse_type(void);
 static ast_node_t *parse_statement(bool inner);
 
 static ast_node_t *parse_expression(arena_t *reused_arena);
@@ -235,12 +236,48 @@ static ast_node_t *parse_block(void) {
 		case EXPR_FIRSTS:
 			node = ast_lnode_add(&ps.ast, node, statement_or_expression(false, true));
 			break;
+		case TOK_KW_VAR: ;
+			ast_node_t *varlist = ast_lnode_new(&ps.ast, 4, AST_VAR_LIST, CONSUME->content);
+			while(true) {
+				string_t identifier = expect(TOK_IDENT)->content;
+				ast_node_t *variable = ast_pnode_new(&ps.ast, AST_VAR_SINGLE, identifier);
+				ast_pnode_left(variable, parse_type());
+				expect(TOK_OP_ASSIGN);
+
+				bool expr;
+				switch(PEEK) {
+					case EXPR_FIRSTS: expr = true; break;
+					default: expr = false; break;
+				}
+
+				ast_pnode_right(variable, statement_or_expression(false, false));
+				varlist = ast_lnode_add(&ps.ast, varlist, variable);
+
+				if(PEEK != TOK_COMMA) {
+					if(expr) expect(TOK_SEMICOLON);
+					break;
+				} else CONSUME;
+			}
+			node = ast_lnode_add(&ps.ast, node, varlist);
 		case TOK_EOF:
 		case TOK_KW_END:
 			goto exit;
 		default: panic(CONSUME, "a statement or an expression");
 	} exit: ;
 	return node;
+}
+
+static ast_node_t *parse_type(void) {
+	if(PEEK != TOK_COLON) return NULL;
+	CONSUME;
+	switch(PEEK) {
+		case TOK_TYPE_NAT:
+		case TOK_TYPE_INT:
+		case TOK_TYPE_BOOL:
+			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
+		default: panic(CONSUME, "a valid type");
+	}
+	return NULL;
 }
 
 static ast_node_t *parse_statement(bool inner_stmt) {
@@ -261,7 +298,7 @@ static ast_node_t *parse_statement(bool inner_stmt) {
 		case TOK_KW_IF:
 			node = ast_lnode_new(&ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
 			for(bool else_next = false; ; ) {
-				ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_CASE, CONSUME->content);
+				ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_SINGLE, CONSUME->content);
 				if(!else_next) ast_pnode_left(branch, statement_or_expression(true, false));
 				ast_pnode_right(branch, statement_content(false));
 				node = ast_lnode_add(&ps.ast, node, branch);
@@ -528,8 +565,8 @@ static ast_node_t *parse_func(ast_node_t *child) {
 
 void parser_start(void) {
 	ps.ast = ast_tree_new();
-	ast_node_t *root = (PEEK == TOK_EOF ? NULL : parse_block());
-	if(root == NULL) printf("The file is empty.\n");
-	else ast_tree_visualize(root);
+	ast_node_t *root = parse_block();
+	expect(TOK_EOF);
+	ast_tree_visualize(root);
 	ast_tree_free(&ps.ast);
 }
