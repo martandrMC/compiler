@@ -57,7 +57,6 @@ static ast_node_t *parse_statement(bool inner);
 
 static ast_node_t *parse_expression(arena_t *reused_arena);
 static ast_node_t *parse_term(arena_t *reused_arena);
-static ast_node_t *parse_func(ast_node_t *child);
 
 // Internal Function Defs (Non-Terminal Helpers) //
 
@@ -99,7 +98,6 @@ static operator_t sy_get_binop(void) {
 }
 
 static operator_t sy_get_unop(void) {
-	//token_t *token = CONSUME;
 	operator_t ret = {.token = NULL, .prec = 0, .unary = true, .left = true};
 	switch(PEEK) {
 		case TOK_KW_NOT:
@@ -291,6 +289,7 @@ static ast_node_t *parse_statement(bool inner_stmt) {
 				if(next == TOK_KW_ELSE) else_next = true;
 				else if(next != TOK_KW_ELIF) break;
 			}
+			expect(TOK_KW_END);
 			break;
 		default: panic(CONSUME, "a statement");
 	}
@@ -303,7 +302,7 @@ static ast_node_t *parse_expression(arena_t *reused_arena) {
 		arena_t new_arena = arena_new(1024);
 		arena = &new_arena;
 	} else arena = reused_arena;
-	ast_node_t *node = shunting_yard(arena);;
+	ast_node_t *node = shunting_yard(arena);
 	if(reused_arena == NULL) arena_free(arena);
 	return node;
 }
@@ -311,52 +310,28 @@ static ast_node_t *parse_expression(arena_t *reused_arena) {
 static ast_node_t *parse_term(arena_t *reused_arena) {
 	ast_node_t *node = NULL;
 	switch(PEEK) {
-		case TOK_OPEN_ROUND: CONSUME;
-			node = parse_expression(reused_arena);
-			expect(TOK_CLOSE_ROUND);
-			break;
-		case TOK_IDENT:
-			node = ast_pnode_new(&ps.ast, AST_IDENT, CONSUME->content);
-			switch(PEEK) { // BEGIN _nt_term_()
-				case TOK_OPEN_ROUND: CONSUME;
-					node = parse_func(node);
-					expect(TOK_CLOSE_ROUND);
-					break;
-				case TERM_FOLLOWS:
-					break;
-				default: panic(CONSUME, "a function call");
-			} // END _nt_term_()
-			break;
 		case TOK_LIT_NUM:
 		case TOK_KW_TRUE:
 		case TOK_KW_FALSE:
 		case TOK_KW_NIL:
 			node = ast_pnode_new(&ps.ast, AST_LITERAL, CONSUME->content);
 			break;
-		default: panic(CONSUME, "a literal, an identifier, or a subexpression.");
-	}
-	return node;
-}
-
-static ast_node_t *parse_func(ast_node_t *child) {
-	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_CALL, EMPTY_STRING);
-	node = ast_lnode_add(&ps.ast, node, child);
-	switch(PEEK) {
-		case STMT_FIRSTS:
-		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, parse_expression(NULL)); // REDO: Allow statements
-			loop: switch(PEEK) { // BEGIN _nt_func_()
-				case TOK_COMMA: CONSUME;
-					node = ast_lnode_add(&ps.ast, node, parse_expression(NULL)); // REDO: Allow statements
-					goto loop;
-				case TOK_CLOSE_ROUND:
-					break;
-				default: panic(CONSUME, "\",\" or \")\"");
-			}
-			break; // END _nt_func_()
-		case TOK_CLOSE_ROUND:
+		case TOK_OPEN_ROUND: CONSUME;
+			node = parse_expression(reused_arena);
+			expect(TOK_CLOSE_ROUND);
 			break;
-		default: panic(CONSUME, "a valid function argument");
+		case TOK_IDENT: ;
+			string_t content = CONSUME->content;
+			if(PEEK == TOK_OPEN_ROUND) { CONSUME;
+				node = ast_lnode_new(&ps.ast, 4, AST_CALL, content);
+				if(PEEK != TOK_CLOSE_ROUND) while(true) {
+					node = ast_lnode_add(&ps.ast, node, statement_or_expression(true, false));
+					if(PEEK != TOK_CLOSE_ROUND) expect(TOK_COMMA);
+					else break;
+				}
+			} else node = ast_pnode_new(&ps.ast, AST_IDENT, content);
+			break;
+		default: panic(CONSUME, "an expression term.");
 	}
 	return node;
 }
