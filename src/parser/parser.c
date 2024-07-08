@@ -240,6 +240,7 @@ static ast_node_t *parse_block(void) {
 				} else CONSUME;
 			}
 			node = ast_lnode_add(&ps.ast, node, varlist);
+			break;
 		case TOK_EOF:
 		case TOK_KW_END:
 			goto exit;
@@ -329,6 +330,7 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 					if(PEEK != TOK_CLOSE_ROUND) expect(TOK_COMMA);
 					else break;
 				}
+				expect(TOK_CLOSE_ROUND);
 			} else node = ast_pnode_new(&ps.ast, AST_IDENT, content);
 			break;
 		default: panic(CONSUME, "an expression term.");
