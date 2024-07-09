@@ -24,7 +24,7 @@ static struct lexer_state {
 
 // Internal Functions //
 
-static bool _is_white_space(char c) {
+static bool is_white_space(char c) {
 	switch(c) {
 		case ' ' : case '\t':
 		case '\r': case '\n':
@@ -34,47 +34,47 @@ static bool _is_white_space(char c) {
 	}
 }
 
-static bool _is_ident_part(char c) {
+static bool is_ident_part(char c) {
 	if(c == '_') return true;
 	return isalnum(c);
 }
 
-static char _get_char(bool consume) {
+static char get_char(bool consume) {
 	if(ls.input_ptr >= ls.input.size) return '\0';
 	char c = ls.input.string[ls.input_ptr];
 	if(consume) ls.input_ptr++;
 	return c;
 }
 
-static char _skip_until(char c) {
+static char skip_until(char c) {
 	while(true) {
-		char next = _get_char(true);
-		if(next == c) return _get_char(true);
+		char next = get_char(true);
+		if(next == c) return get_char(true);
 		else if(next == '\0') return next;
 	}
 }
 
-static void _cleanup_lexer(void) {
+static void cleanup(void) {
 	free(ls.input.string);
 	arena_free(&ls.list);
 }
 
 #define RET(x,n) return (token_t) { .type = x,\
 .content = { .size = n, .string = &ls.input.string[ls.input_ptr - n] } }
-static token_t _read_token(void) {
-	char current = _get_char(true);
+static token_t read_token(void) {
+	char current = get_char(true);
 
 	// Skip whitespaces and comments
 	while(true) {
 		if(current == '/') {
-			char lookahead = _get_char(false);
-			if(lookahead == '/') current = _skip_until('\n');
+			char lookahead = get_char(false);
+			if(lookahead == '/') current = skip_until('\n');
 			else if(lookahead == '*') {
-				do current = _skip_until('*');
+				do current = skip_until('*');
 				while(current != '/' && current != '\0');
-				current = _get_char(true);
+				current = get_char(true);
 			} else break;
-		} else if(_is_white_space(current)) current = _get_char(true);
+		} else if(is_white_space(current)) current = get_char(true);
 		else break;
 	}
 
@@ -86,54 +86,54 @@ static token_t _read_token(void) {
 		case ':': RET(TOK_COLON, 1);
 		case ';': RET(TOK_SEMICOLON, 1);
 		case '=': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_COMPARE, 2);
 			} else RET(TOK_OP_ASSIGN, 1);
 		}
 		case '+': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_ASSIGN_ALT, 2);
 			} else RET(TOK_OP_PLUS, 1);
 		}
 		case '-': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_ASSIGN_ALT, 2);
 			} else RET(TOK_OP_MINUS, 1);
 		}
 		case '*': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_ASSIGN_ALT, 2);
 			} else RET(TOK_OP_MULT, 1);
 		}
 		case '/': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_ASSIGN_ALT, 2);
 			} else RET(TOK_OP_DIV, 1);
 		}
 		case '%': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_ASSIGN_ALT, 2);
 			} else RET(TOK_OP_MOD, 1);
 		}
 		case '>': {
-			if(_get_char(false) == '=') {
-				_get_char(true);
+			if(get_char(false) == '=') {
+				get_char(true);
 				RET(TOK_OP_COMPARE, 2);
 			} else RET(TOK_OP_COMPARE, 1);
 		}
 		case '<': {
-			char lookahead = _get_char(false);
+			char lookahead = get_char(false);
 			if(lookahead == '=') {
-				_get_char(true);
+				get_char(true);
 				RET(TOK_OP_COMPARE, 2);
 			} else if(lookahead == '>') {
-				_get_char(true);
+				get_char(true);
 				RET(TOK_OP_COMPARE, 2);
 			} else RET(TOK_OP_COMPARE, 1);
 		}
@@ -143,9 +143,9 @@ static token_t _read_token(void) {
 		// Handle integer literals
 		size_t count = 1;
 		while(true) {
-			char lookahead = _get_char(false);
-			if(!_is_ident_part(lookahead)) break;
-			current = _get_char(true);
+			char lookahead = get_char(false);
+			if(!is_ident_part(lookahead)) break;
+			current = get_char(true);
 			count++;
 		}
 		RET(TOK_LIT_NUM, count);
@@ -155,9 +155,9 @@ static token_t _read_token(void) {
 		size_t count = 1;
 		while(true) {
 			hash = map_sbox[hash ^ current];
-			char lookahead = _get_char(false);
-			if(!_is_ident_part(lookahead)) break;
-			current = _get_char(true);
+			char lookahead = get_char(false);
+			if(!is_ident_part(lookahead)) break;
+			current = get_char(true);
 			count++;
 		}
 		hash &= MAP_SIZE - 1;
@@ -170,17 +170,17 @@ static token_t _read_token(void) {
 }
 #undef RET
 
-static token_list_t *_new_allocated_token(void) {
+static token_list_t *new_allocated_token(void) {
 	token_list_t *ret = (token_list_t *) arena_alloc(&ls.list, sizeof(token_list_t));
-	ret->token = _read_token(), ret->next = NULL;
+	ret->token = read_token(), ret->next = NULL;
 	return ret;
 }
 
 // External Functions //
 
 void lexer_init(const char *file_path) {
-	if(ls.reinit) _cleanup_lexer();
-	else atexit(_cleanup_lexer), ls.reinit = true;
+	if(ls.reinit) cleanup();
+	else atexit(cleanup), ls.reinit = true;
 
 	FILE *fdesc = fopen(file_path, "r");
 	error_if(!fdesc);
@@ -191,7 +191,7 @@ void lexer_init(const char *file_path) {
 	ls.input = file;
 	ls.input_ptr = 0;
 	ls.list = arena_new(64 * sizeof(token_list_t));
-	ls.last_ptr = _new_allocated_token();
+	ls.last_ptr = new_allocated_token();
 	ls.next_ptr = ls.last_ptr;
 }
 
@@ -204,7 +204,7 @@ token_t *lexer_next(void) {
 	token_list_t *ret;
 	if(ls.next_ptr == ls.last_ptr) {
 		ret = ls.last_ptr;
-		ls.last_ptr = _new_allocated_token();
+		ls.last_ptr = new_allocated_token();
 		ret->next = ls.next_ptr = ls.last_ptr;
 	} else {
 		ret = ls.next_ptr;
