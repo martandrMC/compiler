@@ -4,7 +4,7 @@
 
 #include "common/io.h"
 #include "common/vector.h"
-#include "lexer/lexer.h"
+#include "frontend/lexical/lexer.h"
 
 #include <stdio.h>
 #include <stdlib.h>

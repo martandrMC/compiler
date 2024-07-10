@@ -1,6 +1,6 @@
 #include "common/io.h"
-#include "lexer/lexer.h"
-#include "parser/parser.h"
+#include "frontend/lexical/lexer.h"
+#include "frontend/syntactic/parser.h"
 
 #include <assert.h>
 #include <stdio.h>

@@ -1,4 +1,4 @@
-#include "lexer/lexer.h"
+#include "frontend/lexical/lexer.h"
 
 #define STMT_FIRSTS \
 	/*case*/ TOK_KW_DO: \
