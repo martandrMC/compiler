@@ -4,17 +4,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-/** Combination of a preferably null-terminated character array and its
-  * length in preferably character count. The string is referred to as
-  * "empty" when `string` points to NULL, in which case `size` has no meaning
-  * and can be any value. Additionally, `string` may point to a heap allocation,
-  * stack allocation or a constant string literal. It is up to context exactly
-  * what the meaning of this struct's fields are.
+/** A general-usage string slice. The string is said to be empty when `string`
+  * is NULL or when `size` is 0. It is best practice to ensure both of those
+  * conditions are met though there is no strict way this struct ought to be
+  * used. The string nominally ends either when `size` characters have been
+  * iterated over or a null byte was found. `string` may or may not be owned
+  * and it may be heap allocated, stack allocated, or a read-only literal. There
+  * is no guarantee of the exact properties of `string` and how it needs to
+  * be handled.
   */
 typedef struct string {
 	/// Size of the `string` array including the potential null terminator.
 	size_t size;
-	/// Pointer to string data.
+	/// Pointer to string data or NULL when the string is empty.
 	char *string;
 } string_t;
 
@@ -23,6 +25,17 @@ typedef struct string {
 
 // Convenience macro to encapsulate a C-style string literal into a `string_t`.
 #define TO_STRING(literal) (string_t){.size=(sizeof(literal)-1), .string=literal}
+
+/** A struct to represent a file that has been read into memory.
+  * TODO: Better description here.
+  */
+typedef struct string_file {
+	/// Absolute or relative path to the file whose contents are in `content`.
+	string_t name;
+	/// The contents of the file that where read into memory or `EMPTY_STRING`
+	/// if the file is yet to be read. Nominally heap-allocated.
+	string_t content;
+} string_file_t;
 
 /** Attempts to read from the given file in chunks and allocates an array on
   * the heap to exatly fit the contents of it. If allocation is unsuccessful

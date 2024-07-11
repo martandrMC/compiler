@@ -55,7 +55,6 @@ static char skip_until(char c) {
 }
 
 static void cleanup(void) {
-	free(ls.input.string);
 	arena_free(&ls.list);
 }
 
@@ -178,17 +177,11 @@ static token_list_t *new_allocated_token(void) {
 
 // External Functions //
 
-void lexer_init(const char *file_path) {
+void lexer_init(string_file_t file) {
 	if(ls.reinit) cleanup();
 	else atexit(cleanup), ls.reinit = true;
 
-	FILE *fdesc = fopen(file_path, "r");
-	error_if(!fdesc);
-	string_t file = str_read(fdesc);
-	error_if(!file.string);
-	fclose(fdesc);
-
-	ls.input = file;
+	ls.input = file.content;
 	ls.input_ptr = 0;
 	ls.list = arena_new(64 * sizeof(token_list_t));
 	ls.last_ptr = new_allocated_token();

@@ -20,7 +20,7 @@ typedef struct token_list {
 	token_t token;
 } token_list_t;
 
-void lexer_init(const char *file_path);
+void lexer_init(string_file_t file);
 void lexer_backtrack(token_t *next_ptr);
 token_t *lexer_next(void);
 token_t *lexer_peek(void);
