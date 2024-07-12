@@ -3,7 +3,7 @@
 
 #include "tokens.h"
 
-#include "common/io.h"
+#include "common/strslice.h"
 
 extern const char *token_type_strs[];
 typedef enum token_type {

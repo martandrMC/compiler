@@ -1,7 +1,6 @@
-#ifndef IO_H
-#define IO_H
+#ifndef STRSLICE_H
+#define STRSLICE_H
 
-#include <stdbool.h>
 #include <stdio.h>
 
 /** A general-usage string slice. The string is said to be empty when `string`
@@ -46,10 +45,4 @@ typedef struct string_file {
   */
 string_t str_read(FILE *fdesc);
 
-/** Prints the last error code with perror and exits with
-  * EXIT_FAILURE if the given boolean is true.
-  * @param error_condition The condition that you want to check.
-  */
-void error_if(bool error_condition);
-
-#endif // IO_H
+#endif // STRSLICE_H

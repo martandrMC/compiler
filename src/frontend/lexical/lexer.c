@@ -1,7 +1,7 @@
 #include "lexer.h"
 
 #include "common/arena.h"
-#include "common/io.h"
+#include "common/strslice.h"
 
 #include <ctype.h>
 #include <stdbool.h>

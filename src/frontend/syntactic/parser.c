@@ -2,7 +2,7 @@
 #include "lookaheads.h"
 #include "parser.h"
 
-#include "common/io.h"
+#include "common/strslice.h"
 #include "common/vector.h"
 #include "frontend/lexical/lexer.h"
 

@@ -1,5 +1,6 @@
-#include "io.h"
+#include "strslice.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,11 +27,4 @@ string_t str_read(FILE *fdesc) {
 	}
 	
 	return result;
-}
-
-void error_if(bool error_condition) {
-	if(error_condition) {
-		perror(NULL);
-		exit(EXIT_FAILURE);
-	}
 }

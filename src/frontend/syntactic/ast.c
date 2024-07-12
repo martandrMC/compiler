@@ -1,6 +1,7 @@
 #include "ast.h"
 
-#include "common/io.h"
+#include "common/error.h"
+#include "common/strslice.h"
 
 #include <assert.h>
 #include <stdlib.h>

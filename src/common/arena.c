@@ -1,5 +1,5 @@
 #include "arena.h"
-#include "io.h"
+#include "error.h"
 
 #include <assert.h>
 #include <stdlib.h>

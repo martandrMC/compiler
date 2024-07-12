@@ -1,4 +1,5 @@
-#include "common/io.h"
+#include "common/error.h"
+#include "common/strslice.h"
 #include "frontend/lexical/lexer.h"
 #include "frontend/syntactic/parser.h"
 
