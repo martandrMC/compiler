@@ -2,6 +2,7 @@
 #include "lookaheads.h"
 #include "parser.h"
 
+#include "common/error.h"
 #include "common/strslice.h"
 #include "common/vector.h"
 #include "frontend/lexical/lexer.h"
@@ -13,23 +14,17 @@
 #define CONSUME lexer_next()
 
 static struct parser_state {
+	string_file_t file;
 	ast_t ast;
 } ps;
 
 // Internal Functions (Helpers) //
 
 static void panic_common(token_t *problem) {
-	size_t line = 1;
-	char *file_base = lexer_get_src().string;
-	char *problem_base = problem->content.string;
-	char *last_nl = file_base - 1;
-
-	for(char *c = file_base; c < problem_base; c++)
-		if(*c == '\n') line++, last_nl = c;
-
-	printf("[%lu:%lu] Errant token encountered: ", line, (uintptr_t) (problem_base - last_nl));
+	location_t error = calculate_location(ps.file, problem->content);
+	printf("[%lu:%lu] Errant token encountered: ", error.row, error.column);
 	if(problem->type == TOK_EOF) printf("EOF");
-	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
+	else printf("\"%.*s\"", (int) problem->content.size, problem->content.string);
 }
 
 static void panic(token_t *problem, const char *message) {
@@ -340,7 +335,8 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 
 // External Functions //
 
-void parser_start(void) {
+void parser_start(string_file_t file) {
+	ps.file = file;
 	ps.ast = ast_tree_new();
 	ast_node_t *root = parse_block();
 	expect(TOK_EOF);

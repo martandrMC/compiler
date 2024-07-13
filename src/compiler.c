@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 	fclose(fdesc);
 
 	lexer_init(file);
-	parser_start();
+	parser_start(file);
 
 	free(file.content.string);
 	exit(EXIT_SUCCESS);
