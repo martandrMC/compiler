@@ -21,8 +21,8 @@ static struct parser_state {
 // Internal Functions (Helpers) //
 
 static void panic_common(token_t *problem) {
-	location_t error = calculate_location(ps.file, problem->content);
-	printf("[%lu:%lu] Errant token encountered: ", error.row, error.column);
+	error_t error = err_new_err(ps.file, problem->content, EMPTY_STRING);
+	printf("[%u:%u] Errant token encountered: ", error.row, error.column);
 	if(problem->type == TOK_EOF) printf("EOF");
 	else printf("\"%.*s\"", (int) problem->content.size, problem->content.string);
 }

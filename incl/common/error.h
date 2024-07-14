@@ -5,24 +5,25 @@
 
 #include <stdbool.h>
 
-/** A struct to represent a position in a text file.
-  * Both `column` and `row` are one-indexed so that they can be
-  * directly printed. This struct is primarally intended for
-  * storing the pre-computed location of errors to be displayed.
+/** A struct to represent a reported error and all info neded to
+  * appropriately present it to the user.
   */
-typedef struct location {
-	/// The name of the file that is being referenced.
-	string_t file;
-	/// The inset from the start of the line.
-	size_t column;
+typedef struct error {
+	/// The file that is being referenced.
+	string_file_t file;
 	/// The line number.
-	size_t row;
-} location_t;
+	unsigned row;
+	/// The offset from the start of the line.
+	unsigned column;
+	/// The amount of characters in the span.
+	size_t length;
+	/// The message detailing the nature of the error.
+	string_t message;
+} error_t;
 
-/** TODO: Documentation here
-  * 
-  */
-location_t calculate_location(string_file_t file, string_t spot);
+error_t err_new_err(string_file_t file, string_t spot, string_t message);
+void err_submit(error_t error, bool fatal);
+void err_print(void);
 
 /** Prints the last error code with perror and exits with
   * EXIT_FAILURE if the given boolean is true.

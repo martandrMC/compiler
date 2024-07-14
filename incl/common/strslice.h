@@ -20,10 +20,10 @@ typedef struct string {
 } string_t;
 
 // The canonical configuration of a `string_t` to indicate that it is empty.
-#define EMPTY_STRING (string_t){.size=0, .string=NULL}
+#define EMPTY_STRING ((string_t){.size=0, .string=NULL})
 
 // Convenience macro to encapsulate a C-style string literal into a `string_t`.
-#define TO_STRING(literal) (string_t){.size=(sizeof(literal)-1), .string=literal}
+#define TO_STRING(literal) ((string_t){.size=(sizeof(literal)-1), .string=literal})
 
 /** A struct to represent a file that has been read into memory.
   * TODO: Better description here.

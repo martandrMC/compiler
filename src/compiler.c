@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
 
 	lexer_init(file);
 	parser_start(file);
+	err_print();
 
 	free(file.content.string);
 	exit(EXIT_SUCCESS);
