@@ -15,7 +15,7 @@ error_t err_new_err(string_file_t file, string_t spot, string_t message) {
 	for(char *c = content; c < spot.string; c++)
 		if(*c == '\n') line++, last_nl = c;
 	
-	return (error_t){
+	return (error_t) {
 		.file = file, .row = line,
 		.column = spot.string - last_nl,
 		.length = spot.size,

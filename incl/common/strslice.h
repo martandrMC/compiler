@@ -23,7 +23,10 @@ typedef struct string {
 #define EMPTY_STRING ((string_t){.size=0, .string=NULL})
 
 // Convenience macro to encapsulate a C-style string literal into a `string_t`.
-#define TO_STRING(literal) ((string_t){.size=(sizeof(literal)-1), .string=literal})
+#define LITERAL_STR(literal) ((string_t){.size=(sizeof(literal)-1), .string=literal})
+
+// Convenience macro to construct a string without the use of a struct literal.
+#define CONSTRUCT_STR(m_size, m_string) ((string_t){.size=m_size, .string=m_string})
 
 /** A struct to represent a file that has been read into memory.
   * TODO: Better description here.
