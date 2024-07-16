@@ -28,3 +28,11 @@ string_t str_read(FILE *fdesc) {
 	
 	return result;
 }
+
+unsigned str_count_lines(string_t string) {
+	if(string.size == 0 || string.string == NULL) return 0;
+	unsigned count = 1;
+	for(size_t i=0; i<string.size; i++)
+		if(string.string[i] == '\n') count++;
+	return count;
+}

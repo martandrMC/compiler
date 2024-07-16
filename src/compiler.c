@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
 	file.name.string = argv[1];
 	file.name.size = strlen(argv[1]);
 	file.content = str_read(fdesc);
+	file.lines = str_count_lines(file.content);
 	error_if(!file.content.string);
 	fclose(fdesc);
 

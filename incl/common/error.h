@@ -5,6 +5,8 @@
 
 #include <stdbool.h>
 
+#define LINE_SPAN 1
+
 /** A struct to represent a reported error and all info neded to
   * appropriately present it to the user.
   */

@@ -37,6 +37,8 @@ typedef struct string_file {
 	/// The contents of the file that where read into memory or `EMPTY_STRING`
 	/// if the file is yet to be read. Nominally heap-allocated.
 	string_t content;
+	// The amount of lines the file contains.
+	unsigned lines;
 } string_file_t;
 
 /** Attempts to read from the given file in chunks and allocates an array on
@@ -47,5 +49,7 @@ typedef struct string_file {
   * @return Returns a string struct with heap-allocated data if successful.
   */
 string_t str_read(FILE *fdesc);
+
+unsigned str_count_lines(string_t string);
 
 #endif // STRSLICE_H
