@@ -60,7 +60,7 @@ void err_print(void) {
 	for(size_t i=0; i<error_queue->count; i++) {
 		error_t *error = vector_peek_from(error_queue, i);
 		printf(
-			"ERROR: %.*s at row %u, column %u\n",
+			"\x1b[1;31mERROR:\x1b[37m %.*s at line %u, column %u\x1b[0m\n",
 			(int) error->file.name.size,
 			error->file.name.string,
 			error->row + 1, error->column + 1
@@ -72,16 +72,22 @@ void err_print(void) {
 		if(max_line >= error->file.lines) max_line = error->file.lines - 1;
 		for(unsigned lnum = min_line; lnum <= max_line; lnum++) {
 			string_t line = get_line(error->file.content, lnum);
-			printf(" %.*d | %.*s\n", (int) digits, lnum + 1, (int) line.size, line.string);
+			printf(
+				" \x1b[1;36m%.*d |\x1b[0m %.*s\n",
+				(int) digits, lnum + 1,
+				(int) line.size, line.string
+			);
 			if(lnum == error->row) {
 				for(unsigned i=0; i<digits+2; i++) putchar(' ');
-				putchar('|');
+				printf("\x1b[1;36m|\x1b[0m");
 				for(unsigned i=0; i<error->column+1; i++) putchar(' ');
-				putchar('^');
+				printf("\x1b[1;35m^");
 				for(size_t i=0; i<error->length-1; i++) putchar('~');
-				putchar(' ');
-				printf("%.*s", (int) error->message.size, error->message.string);
-				putchar('\n');
+				printf(
+					" %.*s\x1b[0m\n",
+					(int) error->message.size,
+					error->message.string
+				);
 			}
 		}
 	}
