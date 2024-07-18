@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define PEEK lexer_peek()->type
 #define CONSUME lexer_next()
@@ -20,26 +21,20 @@ static struct parser_state {
 
 // Internal Functions (Helpers) //
 
-static void panic_common(token_t *problem) {
-	error_t error = err_new_err(ps.file, problem->content, EMPTY_STRING);
-	printf("[%u:%u] Errant token encountered: ", error.row, error.column);
-	if(problem->type == TOK_EOF) printf("EOF");
-	else printf("\"%.*s\"", (int) problem->content.size, problem->content.string);
-}
-
-static void panic(token_t *problem, const char *message) {
-	panic_common(problem);
-	if(message != NULL) printf(", expected: %s\n", message);
-	else printf("\n");
-	exit(EXIT_FAILURE);
+static void panic(token_t *problem, char *message) {
+	string_t error_spot = problem->content;
+	string_t error_message = CONSTRUCT_STR(strlen(message), message);
+	error_t error_descriptor = err_new_err(ps.file, error_spot, error_message);
+	err_submit(error_descriptor, true);
 }
 
 static token_t *expect(token_type_t type) {
 	token_t *next = CONSUME;
 	if(next->type != type) {
-		panic_common(next);
-		printf(", expected: %s\n", token_type_strs[type]);
-		exit(EXIT_FAILURE);
+		string_t error_spot = next->content;
+		string_t error_message = LITERAL_STR("Expected more (TODO)");
+		error_t error_descriptor = err_new_err(ps.file, error_spot, error_message);
+		err_submit(error_descriptor, true);
 	}
 	return next;
 }
