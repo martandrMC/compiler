@@ -1,6 +1,7 @@
 #ifndef ERROR_H
 #define ERROR_H
 
+#include "arena.h"
 #include "strslice.h"
 
 #include <stdbool.h>
@@ -23,9 +24,12 @@ typedef struct error {
 	string_t message;
 } error_t;
 
-error_t err_new_err(string_file_t file, string_t spot, string_t message);
+void err_init(void);
+arena_t *err_get_arena(void);
+
+error_t err_new(string_file_t file, string_t spot, string_t message);
 void err_submit(error_t error, bool fatal);
-void err_print(void);
+void err_finalize(void);
 
 /** Prints the last error code with perror and exits with
   * EXIT_FAILURE if the given boolean is true.

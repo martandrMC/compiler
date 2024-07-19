@@ -24,7 +24,7 @@ static struct parser_state {
 static void panic(token_t *problem, char *message) {
 	string_t error_spot = problem->content;
 	string_t error_message = CONSTRUCT_STR(strlen(message), message);
-	error_t error_descriptor = err_new_err(ps.file, error_spot, error_message);
+	error_t error_descriptor = err_new(ps.file, error_spot, error_message);
 	err_submit(error_descriptor, true);
 }
 
@@ -32,8 +32,11 @@ static token_t *expect(token_type_t type) {
 	token_t *next = CONSUME;
 	if(next->type != type) {
 		string_t error_spot = next->content;
-		string_t error_message = LITERAL_STR("Expected more (TODO)");
-		error_t error_descriptor = err_new_err(ps.file, error_spot, error_message);
+		size_t message_length = sizeof "Expected " + strlen(token_type_strs[type]);
+		char *message_string = arena_alloc(err_get_arena(), message_length);
+		snprintf(message_string, message_length, "Expected %s", token_type_strs[type]);
+		string_t error_message = CONSTRUCT_STR(message_length, message_string);
+		error_t error_descriptor = err_new(ps.file, error_spot, error_message);
 		err_submit(error_descriptor, true);
 	}
 	return next;

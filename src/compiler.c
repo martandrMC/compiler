@@ -24,9 +24,10 @@ int main(int argc, char **argv) {
 	error_if(!file.content.string);
 	fclose(fdesc);
 
+	err_init();
 	lexer_init(file);
 	parser_start(file);
-	err_print();
+	err_finalize();
 
 	free(file.content.string);
 	exit(EXIT_SUCCESS);

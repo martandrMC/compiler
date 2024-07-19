@@ -167,7 +167,7 @@ static token_t read_token(void) {
 		else RET(map_vals[hash], count);
 	} else if(current != '\0') {
 		string_t error_spot = CONSTRUCT_STR(1, &ls.file.content.string[ls.file_ptr - 1]);
-		error_t error_descriptor = err_new_err(ls.file, error_spot, LITERAL_STR("Invalid symbol"));
+		error_t error_descriptor = err_new(ls.file, error_spot, LITERAL_STR("Invalid symbol"));
 		err_submit(error_descriptor, false);
 		return read_token();
 	} else RET(TOK_EOF, 1);

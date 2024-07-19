@@ -2,11 +2,17 @@
 
 #include "vector.h"
 
-#include <math.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static vector_t *error_queue = NULL;
+static struct error_state {
+	bool init;
+	arena_t arena;
+	vector_t *vector;
+} es = {.init = false};
+
+// Internal Functions //
 
 static unsigned digit_count(unsigned num) {
 	unsigned ret = 1;
@@ -32,7 +38,27 @@ static string_t get_line(string_t full, unsigned line) {
 	return ret;
 }
 
-error_t err_new_err(string_file_t file, string_t spot, string_t message) {
+static void cleanup(void) {
+	assert(es.init);
+	arena_free(&es.arena);
+	es.init = false;
+}
+
+// External Functions //
+
+void err_init(void) {
+	if(es.init) cleanup();
+	es.arena = arena_new(1024);
+	es.vector = vector_new(&es.arena, sizeof(error_t), 16);
+	es.init = true;
+}
+
+arena_t *err_get_arena(void) {
+	if(!es.init) return NULL;
+	else return &es.arena;
+}
+
+error_t err_new(string_file_t file, string_t spot, string_t message) {
 	size_t line = 0;
 	char *content = file.content.string;
 	char *last_nl = content - 1;
@@ -49,16 +75,14 @@ error_t err_new_err(string_file_t file, string_t spot, string_t message) {
 }
 
 void err_submit(error_t error, bool fatal) {
-	if(error_queue == NULL)
-		error_queue = vector_new(NULL, sizeof(error_t), 16);
-	vector_add(&error_queue, &error);
-	if(fatal) err_print(), exit(EXIT_FAILURE);
+	assert(es.init);
+	vector_add(&es.vector, &error);
+	if(fatal) err_finalize(), exit(EXIT_FAILURE);
 }
 
-void err_print(void) {
-	if(error_queue == NULL) return;
-	for(size_t i=0; i<error_queue->count; i++) {
-		error_t *error = vector_peek_from(error_queue, i);
+void err_finalize(void) {
+	for(size_t i = 0; i < es.vector->count; i++) {
+		error_t *error = vector_peek_from(es.vector, i);
 		printf(
 			"\x1b[1;31mERROR:\x1b[37m %.*s at line %u, column %u\x1b[0m\n",
 			(int) error->file.name.size,
@@ -91,8 +115,7 @@ void err_print(void) {
 			}
 		}
 	}
-	free(error_queue);
-	error_queue = NULL;
+	cleanup();
 }
 
 void error_if(bool error_condition) {
