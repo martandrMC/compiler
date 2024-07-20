@@ -12,6 +12,21 @@
 
 #include "keywords.c"
 
+const char *token_type_strs[] = {
+	"ERROR", "EOF",
+	"\"(\"", "\")\"",
+	"\",\"", "\":\"", "\";\"",
+	"\"=\"", "an assignment operator",
+	"a comparison operator", "\"+\"", "\"-\"",
+	"\"*\"", "\"/\"", "\"%\"",
+	"\"do\"", "\"end\"", "\"var\"", "\"return\"",
+	"\"if\"", "\"elif\"", "\"else\"", "\"while\"",
+	"\"and\"", "\"or\"", "\"not\"",
+	"\"true\"", "\"false\"", "\"nil\"",
+	"\"nat\"", "\"int\"", "\"bool\"",
+	"an identifier", "an integer literal"
+};
+
 static struct lexer_state {
 	bool reinit;
 
