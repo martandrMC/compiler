@@ -2,9 +2,9 @@
 #include "lookaheads.h"
 #include "parser.h"
 
-#include "common/error.h"
 #include "common/strslice.h"
 #include "common/vector.h"
+#include "frontend/error.h"
 #include "frontend/lexical/lexer.h"
 
 #include <stdio.h>

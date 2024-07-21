@@ -6,6 +6,7 @@
 			"includePath": [
 				"${workspaceFolder}/incl/",
 				"${workspaceFolder}/incl/common",
+				"${workspaceFolder}/incl/frontend",
 				"${workspaceFolder}/incl/frontend/lexical",
 				"${workspaceFolder}/incl/frontend/syntactic"
 			],

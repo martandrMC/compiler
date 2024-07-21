@@ -1,8 +1,8 @@
 #ifndef ERROR_H
 #define ERROR_H
 
-#include "arena.h"
-#include "strslice.h"
+#include "common/arena.h"
+#include "common/strslice.h"
 
 #include <stdbool.h>
 

@@ -1,8 +1,8 @@
 #include "lexer.h"
 
 #include "common/arena.h"
-#include "common/error.h"
 #include "common/strslice.h"
+#include "frontend/error.h"
 
 #include <ctype.h>
 #include <stdbool.h>

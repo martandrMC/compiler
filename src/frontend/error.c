@@ -1,6 +1,6 @@
 #include "error.h"
 
-#include "vector.h"
+#include "common/vector.h"
 
 #include <assert.h>
 #include <stdio.h>

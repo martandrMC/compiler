@@ -1,9 +1,8 @@
-#include "common/error.h"
 #include "common/strslice.h"
+#include "frontend/error.h"
 #include "frontend/lexical/lexer.h"
 #include "frontend/syntactic/parser.h"
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
