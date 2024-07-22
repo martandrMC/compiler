@@ -1,7 +1,8 @@
 #include "lexer.h"
 
 #include "common/arena.h"
-#include "common/io.h"
+#include "common/strslice.h"
+#include "frontend/error.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -11,11 +12,26 @@
 
 #include "keywords.c"
 
+const char *token_type_strs[] = {
+	"ERROR", "EOF",
+	"\"(\"", "\")\"",
+	"\",\"", "\":\"", "\";\"",
+	"\"=\"", "an assignment operator",
+	"a comparison operator", "\"+\"", "\"-\"",
+	"\"*\"", "\"/\"", "\"%\"",
+	"\"do\"", "\"end\"", "\"var\"", "\"return\"",
+	"\"if\"", "\"elif\"", "\"else\"", "\"while\"",
+	"\"and\"", "\"or\"", "\"not\"",
+	"\"true\"", "\"false\"", "\"nil\"",
+	"\"nat\"", "\"int\"", "\"bool\"",
+	"an identifier", "an integer literal"
+};
+
 static struct lexer_state {
 	bool reinit;
 
-	string_t input;
-	size_t input_ptr;
+	string_file_t file;
+	size_t file_ptr;
 
 	arena_t list;
 	token_list_t *next_ptr;
@@ -40,9 +56,9 @@ static bool is_ident_part(char c) {
 }
 
 static char get_char(bool consume) {
-	if(ls.input_ptr >= ls.input.size) return '\0';
-	char c = ls.input.string[ls.input_ptr];
-	if(consume) ls.input_ptr++;
+	if(ls.file_ptr >= ls.file.content.size) return '\0';
+	char c = ls.file.content.string[ls.file_ptr];
+	if(consume) ls.file_ptr++;
 	return c;
 }
 
@@ -55,12 +71,11 @@ static char skip_until(char c) {
 }
 
 static void cleanup(void) {
-	free(ls.input.string);
 	arena_free(&ls.list);
 }
 
 #define RET(x,n) return (token_t) { .type = x,\
-.content = { .size = n, .string = &ls.input.string[ls.input_ptr - n] } }
+.content = CONSTRUCT_STR(n, &ls.file.content.string[ls.file_ptr - n]) }
 static token_t read_token(void) {
 	char current = get_char(true);
 
@@ -161,12 +176,16 @@ static token_t read_token(void) {
 			count++;
 		}
 		hash &= MAP_SIZE - 1;
-		const char *content = &ls.input.string[ls.input_ptr - count];
+		const char *content = &ls.file.content.string[ls.file_ptr - count];
 		const char *keyword = map_keys[hash];
 		if(strncmp(content, keyword, count)) RET(TOK_IDENT, count);
 		else RET(map_vals[hash], count);
-	} else if(current == '\0') RET(TOK_EOF, 1);
-	else RET(TOK_ERROR, 1);
+	} else if(current != '\0') {
+		string_t error_spot = CONSTRUCT_STR(1, &ls.file.content.string[ls.file_ptr - 1]);
+		error_t error_descriptor = err_new(ls.file, error_spot, LITERAL_STR("Invalid symbol"));
+		err_submit(error_descriptor, false);
+		return read_token();
+	} else RET(TOK_EOF, 1);
 }
 #undef RET
 
@@ -178,18 +197,12 @@ static token_list_t *new_allocated_token(void) {
 
 // External Functions //
 
-void lexer_init(const char *file_path) {
+void lexer_init(string_file_t file) {
 	if(ls.reinit) cleanup();
 	else atexit(cleanup), ls.reinit = true;
 
-	FILE *fdesc = fopen(file_path, "r");
-	error_if(!fdesc);
-	string_t file = str_read(fdesc);
-	error_if(!file.string);
-	fclose(fdesc);
-
-	ls.input = file;
-	ls.input_ptr = 0;
+	ls.file = file;
+	ls.file_ptr = 0;
 	ls.list = arena_new(64 * sizeof(token_list_t));
 	ls.last_ptr = new_allocated_token();
 	ls.next_ptr = ls.last_ptr;
@@ -218,5 +231,5 @@ token_t *lexer_peek(void) {
 }
 
 string_t lexer_get_src(void) {
-	return ls.input;
+	return ls.file.content;
 }

@@ -36,10 +36,11 @@ void vector_add(vector_t **vector, const void *data) {
 }
 
 void vector_take(vector_t *vector, void *data) {
-	if(vector->count == 0) return;
-	// Playing it safe, data may be part of the vector
-	memmove(data, vector_peek(vector), vector->unit_size);
-	vector->count--;
+	if(vector->count > 0) {
+		// Playing it safe, data may be part of the vector
+		memmove(data, vector_peek(vector), vector->unit_size);
+		vector->count--;
+	} else memset(data, 0, vector->unit_size);
 }
 
 void *vector_peek(vector_t *vector) {

@@ -2,49 +2,59 @@
 #include "lookaheads.h"
 #include "parser.h"
 
-#include "common/io.h"
+#include "common/strslice.h"
 #include "common/vector.h"
-#include "lexer/lexer.h"
+#include "frontend/error.h"
+#include "frontend/lexical/lexer.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define PEEK lexer_peek()->type
 #define CONSUME lexer_next()
 
 static struct parser_state {
+	string_file_t file;
 	ast_t ast;
 } ps;
 
 // Internal Functions (Helpers) //
 
-static void panic_common(token_t *problem) {
-	size_t line = 1;
-	char *file_base = lexer_get_src().string;
-	char *problem_base = problem->content.string;
-	char *last_nl = file_base - 1;
-
-	for(char *c = file_base; c < problem_base; c++)
-		if(*c == '\n') line++, last_nl = c;
-
-	printf("[%lu:%lu] Errant token encountered: ", line, (uintptr_t) (problem_base - last_nl));
-	if(problem->type == TOK_EOF) printf("EOF");
-	else printf("\"%.*s\"", (int) problem->content.size, problem_base);
+/* WIP
+static void skip_until(size_t count, ...) {
+	va_list token_types;
+	for(bool found = false; !found; ) {
+		va_start(token_types, count);
+		for(size_t i=0; i<count; i++) {
+			token_type_t sample = va_arg(token_types, token_type_t);
+			if(PEEK == sample) { found = true; break; }
+		}
+		if(!found) CONSUME;
+		if(PEEK == TOK_EOF) found = true;
+		va_end(token_types);
+	}
 }
+*/
 
-static void panic(token_t *problem, const char *message) {
-	panic_common(problem);
-	if(message != NULL) printf(", expected: %s\n", message);
-	else printf("\n");
-	exit(EXIT_FAILURE);
+static void report(token_t *problem, char *message) {
+	string_t error_spot = problem->content;
+	string_t error_message = CONSTRUCT_STR(strlen(message), message);
+	error_t error_descriptor = err_new(ps.file, error_spot, error_message);
+	err_submit(error_descriptor, problem->type == TOK_EOF);
 }
 
 static token_t *expect(token_type_t type) {
-	token_t *next = CONSUME;
+	token_t *next = lexer_peek();
 	if(next->type != type) {
-		panic_common(next);
-		printf(", expected: %s\n", token_type_strs[type]);
-		exit(EXIT_FAILURE);
+		string_t error_spot = next->content;
+		size_t message_length = sizeof "Expected " + strlen(token_type_strs[type]);
+		char *message_string = arena_alloc(err_get_arena(), message_length);
+		snprintf(message_string, message_length, "Expected %s", token_type_strs[type]);
+		string_t error_message = CONSTRUCT_STR(message_length, message_string);
+		error_t error_descriptor = err_new(ps.file, error_spot, error_message);
+		err_submit(error_descriptor, false);
 	}
 	return next;
 }
@@ -92,7 +102,7 @@ static operator_t sy_get_binop(void) {
 		case TOK_OP_MOD:
 			ret.prec = 1;
 			break;
-		default: panic(token, "a valid binary operator");
+		default: report(token, "a valid binary operator");
 	}
 	return ret;
 }
@@ -111,7 +121,7 @@ static operator_t sy_get_unop(void) {
 			break;
 		case TERM_FIRSTS:
 			break;
-		default: panic(CONSUME, "a valid unary operator");
+		default: report(CONSUME, "a valid unary operator");
 	}
 	return ret;
 }
@@ -161,11 +171,15 @@ static ast_node_t *shunting_yard(arena_t *arena) {
 		}
 	} exit: ;
 
-	if(atom) panic(CONSUME, "another expression term");
-	for(size_t i=0, size = opstack->count; i<size; i++)
-		sy_pop_operator(&output, &opstack);
+	if(atom) {
+		token_t *errant = CONSUME;
+		report(errant, "another expression term");
+		ast_node_t *errant_node = ast_pnode_new(&ps.ast, AST_ERROR, errant->content);
+		vector_add(&output, &errant_node);
+	}
 
-	if(output->count != 1) panic(CONSUME, "a well-formed expression");
+	for(size_t i=0, size = opstack->count; i<size; i++) sy_pop_operator(&output, &opstack);
+	if(output->count != 1) report(CONSUME, "a well-formed expression");
 	ast_node_t *expr; vector_take(output, &expr);
 	return expr;
 }
@@ -180,7 +194,7 @@ static ast_node_t *statement_or_expression(bool inner_stmt, bool sem_expr) {
 			node = parse_expression(NULL);
 			if(sem_expr) expect(TOK_SEMICOLON);
 			break;
-		default: panic(CONSUME, "statement or expression");
+		default: report(CONSUME, "statement or expression");
 	}
 	return node;
 }
@@ -203,7 +217,7 @@ static ast_node_t *statement_content(bool with_end) {
 		case TOK_KW_DO:
 			node = enclosed_block(true);
 			break;
-		default: panic(CONSUME, "\":\" or inline block");
+		default: report(CONSUME, "\":\" or inline block");
 	}
 	return node;
 }
@@ -244,7 +258,7 @@ static ast_node_t *parse_block(void) {
 		case TOK_EOF:
 		case TOK_KW_END:
 			goto exit;
-		default: panic(CONSUME, "a statement or an expression");
+		default: report(CONSUME, "a statement or an expression");
 	} exit: ;
 	return node;
 }
@@ -257,7 +271,7 @@ static ast_node_t *parse_type(void) {
 		case TOK_TYPE_INT:
 		case TOK_TYPE_BOOL:
 			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
-		default: panic(CONSUME, "a valid type");
+		default: report(CONSUME, "a valid type");
 	}
 	return NULL;
 }
@@ -292,7 +306,7 @@ static ast_node_t *parse_statement(bool inner_stmt) {
 			}
 			expect(TOK_KW_END);
 			break;
-		default: panic(CONSUME, "a statement");
+		default: ;
 	}
 	return node;
 }
@@ -333,14 +347,18 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 				expect(TOK_CLOSE_ROUND);
 			} else node = ast_pnode_new(&ps.ast, AST_IDENT, content);
 			break;
-		default: panic(CONSUME, "an expression term.");
+		default: ;
+			token_t *errant = CONSUME;
+			report(errant, "an expression term.");
+			node = ast_pnode_new(&ps.ast, AST_ERROR, errant->content);
 	}
 	return node;
 }
 
 // External Functions //
 
-void parser_start(void) {
+void parser_start(string_file_t file) {
+	ps.file = file;
 	ps.ast = ast_tree_new();
 	ast_node_t *root = parse_block();
 	expect(TOK_EOF);

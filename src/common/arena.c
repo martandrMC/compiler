@@ -1,5 +1,6 @@
 #include "arena.h"
-#include "io.h"
+
+#include "frontend/error.h"
 
 #include <assert.h>
 #include <stdlib.h>

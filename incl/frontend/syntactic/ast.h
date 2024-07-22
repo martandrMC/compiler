@@ -4,7 +4,7 @@
 #include "nodes.h"
 
 #include "common/arena.h"
-#include "common/io.h"
+#include "common/strslice.h"
 
 #define AST_FIRST_LIST_NODE AST_INTERNAL
 

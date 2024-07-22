@@ -3,6 +3,6 @@
 
 #include <stdbool.h>
 
-void parser_start(void);
+void parser_start(string_file_t file);
 
 #endif // PARSER_H
