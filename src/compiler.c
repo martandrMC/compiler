@@ -1,6 +1,7 @@
 #include "common/strslice.h"
 #include "frontend/error.h"
 #include "frontend/lexical/lexer.h"
+#include "frontend/syntactic/ast.h"
 #include "frontend/syntactic/parser.h"
 
 #include <stdio.h>
@@ -25,7 +26,10 @@ int main(int argc, char **argv) {
 
 	err_init();
 	lexer_init(file);
-	parser_start(file);
+	ast_t ast = ast_tree_new();
+	ast_node_t *root = parser_start(file, &ast);
+	ast_tree_visualize(root);
+	ast_tree_free(&ast);
 	err_finalize();
 
 	free(file.content.string);

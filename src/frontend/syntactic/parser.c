@@ -17,7 +17,7 @@
 
 static struct parser_state {
 	string_file_t file;
-	ast_t ast;
+	ast_t *ast;
 } ps;
 
 // Internal Functions (Helpers) //
@@ -129,7 +129,7 @@ static operator_t sy_get_unop(void) {
 static void sy_pop_operator(vector_t **output, vector_t **opstack) {
 	operator_t old_op; vector_take(*opstack, &old_op);
 	ast_node_type_t node_type = old_op.unary ? AST_OP_UNARY : AST_OP_BINARY;
-	ast_node_t *node = ast_pnode_new(&ps.ast, node_type, old_op.token->content);
+	ast_node_t *node = ast_pnode_new(ps.ast, node_type, old_op.token->content);
 
 	ast_node_t *tmp = NULL;
 	vector_take(*output, &tmp);
@@ -174,7 +174,7 @@ static ast_node_t *shunting_yard(arena_t *arena) {
 	if(atom) {
 		token_t *errant = CONSUME;
 		report(errant, "another expression term");
-		ast_node_t *errant_node = ast_pnode_new(&ps.ast, AST_ERROR, errant->content);
+		ast_node_t *errant_node = ast_pnode_new(ps.ast, AST_ERROR, errant->content);
 		vector_add(&output, &errant_node);
 	}
 
@@ -225,17 +225,17 @@ static ast_node_t *statement_content(bool with_end) {
 // Internal Functions Defs (Non-Terminals) //
 
 static ast_node_t *parse_block(void) {
-	ast_node_t *node = ast_lnode_new(&ps.ast, 4, AST_BLOCK, EMPTY_STRING);
+	ast_node_t *node = ast_lnode_new(ps.ast, 4, AST_BLOCK, EMPTY_STRING);
 	while(true) switch(PEEK) {
 		case STMT_FIRSTS:
 		case EXPR_FIRSTS:
-			node = ast_lnode_add(&ps.ast, node, statement_or_expression(false, true));
+			node = ast_lnode_add(ps.ast, node, statement_or_expression(false, true));
 			break;
 		case TOK_KW_VAR: ;
-			ast_node_t *varlist = ast_lnode_new(&ps.ast, 4, AST_VAR_LIST, CONSUME->content);
+			ast_node_t *varlist = ast_lnode_new(ps.ast, 4, AST_VAR_LIST, CONSUME->content);
 			while(true) {
 				string_t identifier = expect(TOK_IDENT)->content;
-				ast_node_t *variable = ast_pnode_new(&ps.ast, AST_VAR_SINGLE, identifier);
+				ast_node_t *variable = ast_pnode_new(ps.ast, AST_VAR_SINGLE, identifier);
 				ast_pnode_left(variable, parse_type());
 				expect(TOK_OP_ASSIGN);
 
@@ -246,14 +246,14 @@ static ast_node_t *parse_block(void) {
 				}
 
 				ast_pnode_right(variable, statement_or_expression(false, false));
-				varlist = ast_lnode_add(&ps.ast, varlist, variable);
+				varlist = ast_lnode_add(ps.ast, varlist, variable);
 
 				if(PEEK != TOK_COMMA) {
 					if(expr) expect(TOK_SEMICOLON);
 					break;
 				} else CONSUME;
 			}
-			node = ast_lnode_add(&ps.ast, node, varlist);
+			node = ast_lnode_add(ps.ast, node, varlist);
 			break;
 		case TOK_EOF:
 		case TOK_KW_END:
@@ -270,7 +270,7 @@ static ast_node_t *parse_type(void) {
 		case TOK_TYPE_NAT:
 		case TOK_TYPE_INT:
 		case TOK_TYPE_BOOL:
-			return ast_pnode_new(&ps.ast, AST_TYPE, CONSUME->content);
+			return ast_pnode_new(ps.ast, AST_TYPE, CONSUME->content);
 		default: report(CONSUME, "a valid type");
 	}
 	return NULL;
@@ -283,21 +283,21 @@ static ast_node_t *parse_statement(bool inner_stmt) {
 			node = enclosed_block(true);
 			break;
 		case TOK_KW_RETURN:
-			node = ast_pnode_new(&ps.ast, AST_RETURN, CONSUME->content);
+			node = ast_pnode_new(ps.ast, AST_RETURN, CONSUME->content);
 			ast_pnode_left(node, statement_or_expression(inner_stmt, !inner_stmt));
 			break;
 		case TOK_KW_WHILE:
-			node = ast_pnode_new(&ps.ast, AST_WHILE, CONSUME->content);
+			node = ast_pnode_new(ps.ast, AST_WHILE, CONSUME->content);
 			ast_pnode_left(node, statement_or_expression(true, false));
 			ast_pnode_right(node, statement_content(true));
 			break;
 		case TOK_KW_IF:
-			node = ast_lnode_new(&ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
+			node = ast_lnode_new(ps.ast, 4, AST_IF_LIST, EMPTY_STRING);
 			for(bool else_next = false; ; ) {
-				ast_node_t *branch = ast_pnode_new(&ps.ast, AST_IF_SINGLE, CONSUME->content);
+				ast_node_t *branch = ast_pnode_new(ps.ast, AST_IF_SINGLE, CONSUME->content);
 				if(!else_next) ast_pnode_left(branch, statement_or_expression(true, false));
 				ast_pnode_right(branch, statement_content(false));
-				node = ast_lnode_add(&ps.ast, node, branch);
+				node = ast_lnode_add(ps.ast, node, branch);
 
 				if(else_next) break;
 				token_type_t next = PEEK;
@@ -329,7 +329,7 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 		case TOK_KW_TRUE:
 		case TOK_KW_FALSE:
 		case TOK_KW_NIL:
-			node = ast_pnode_new(&ps.ast, AST_LITERAL, CONSUME->content);
+			node = ast_pnode_new(ps.ast, AST_LITERAL, CONSUME->content);
 			break;
 		case TOK_OPEN_ROUND: CONSUME;
 			node = parse_expression(reused_arena);
@@ -338,30 +338,28 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 		case TOK_IDENT: ;
 			string_t content = CONSUME->content;
 			if(PEEK == TOK_OPEN_ROUND) { CONSUME;
-				node = ast_lnode_new(&ps.ast, 4, AST_CALL, content);
+				node = ast_lnode_new(ps.ast, 4, AST_CALL, content);
 				if(PEEK != TOK_CLOSE_ROUND) while(true) {
-					node = ast_lnode_add(&ps.ast, node, statement_or_expression(true, false));
+					node = ast_lnode_add(ps.ast, node, statement_or_expression(true, false));
 					if(PEEK != TOK_CLOSE_ROUND) expect(TOK_COMMA);
 					else break;
 				}
 				expect(TOK_CLOSE_ROUND);
-			} else node = ast_pnode_new(&ps.ast, AST_IDENT, content);
+			} else node = ast_pnode_new(ps.ast, AST_IDENT, content);
 			break;
 		default: ;
 			token_t *errant = CONSUME;
 			report(errant, "an expression term.");
-			node = ast_pnode_new(&ps.ast, AST_ERROR, errant->content);
+			node = ast_pnode_new(ps.ast, AST_ERROR, errant->content);
 	}
 	return node;
 }
 
 // External Functions //
 
-void parser_start(string_file_t file) {
-	ps.file = file;
-	ps.ast = ast_tree_new();
+ast_node_t *parser_start(string_file_t file, ast_t *empty) {
+	ps.file = file, ps.ast = empty;
 	ast_node_t *root = parse_block();
 	expect(TOK_EOF);
-	ast_tree_visualize(root);
-	ast_tree_free(&ps.ast);
+	return root;
 }
