@@ -357,9 +357,9 @@ static ast_node_t *parse_term(arena_t *reused_arena) {
 
 // External Functions //
 
-ast_node_t *parser_start(string_file_t file, ast_t *empty) {
-	ps.file = file, ps.ast = empty;
+void parser_start(string_file_t file, ast_t *tree) {
+	ps.file = file, ps.ast = tree;
 	ast_node_t *root = parse_block();
 	expect(TOK_EOF);
-	return root;
+	tree->root = root;
 }

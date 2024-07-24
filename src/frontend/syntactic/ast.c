@@ -58,17 +58,9 @@ static void visualizer_walker(ast_node_t *root, size_t depth, string_t *prefix, 
 
 // External Functions //
 
-#define INITIAL_BUFFER_SIZE 16
-void ast_tree_visualize(ast_node_t *root) {
-	char *initial_buffer  = (char *) calloc(INITIAL_BUFFER_SIZE, sizeof(char));
-	string_t prefix = {.size = INITIAL_BUFFER_SIZE, .string = initial_buffer};
-	visualizer_walker(root, 0, &prefix, false); printf("\x1b[0m");
-	free(prefix.string);
-}
-
 ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type, string_t content) {
 	assert(type < AST_FIRST_LIST_NODE);
-	ast_node_t *node = (ast_node_t *) arena_alloc(tree, sizeof(ast_node_t));
+	ast_node_t *node = (ast_node_t *) arena_alloc(&tree->arena, sizeof(ast_node_t));
 	error_if(node == NULL);
 	node->type = type, node->content = content;
 	node->children.pair.left = node->children.pair.right = NULL; // redundant
@@ -78,7 +70,8 @@ ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type, string_t content) {
 ast_node_t *ast_lnode_new(ast_t *tree, size_t capacity, ast_node_type_t type, string_t content) {
 	assert(type >= AST_FIRST_LIST_NODE);
 	size_t list_size_bytes = capacity * sizeof(ast_node_t *);
-	ast_node_t *node = (ast_node_t *) arena_alloc(tree, sizeof(ast_node_t) + list_size_bytes);
+	ast_node_t *node = (ast_node_t *) arena_alloc(
+		&tree->arena, sizeof(ast_node_t) + list_size_bytes);
 	error_if(node == NULL);
 	node->type = type, node->content = content;
 	node->children.list.capacity = capacity;
@@ -103,4 +96,24 @@ ast_node_t *ast_lnode_add(ast_t *tree, ast_node_t *parent, ast_node_t *child) {
 	parent->children.list.list[child_idx] = child;
 	parent->children.list.count++;
 	return parent;
+}
+
+ast_t ast_tree_new(void) {
+	return (ast_t) {
+		.arena = arena_new(64),
+		.root = NULL
+	};
+}
+
+void ast_tree_free(ast_t *tree) {
+	arena_free(&tree->arena);
+	tree->root = NULL;
+}
+
+#define INITIAL_BUFFER_SIZE 16
+void ast_tree_visualize(ast_t *tree) {
+	char *initial_buffer  = (char *) calloc(INITIAL_BUFFER_SIZE, sizeof(char));
+	string_t prefix = {.size = INITIAL_BUFFER_SIZE, .string = initial_buffer};
+	visualizer_walker(tree->root, 0, &prefix, false); printf("\x1b[0m");
+	free(prefix.string);
 }

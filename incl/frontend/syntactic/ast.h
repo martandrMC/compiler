@@ -32,10 +32,10 @@ typedef struct ast_node {
 } ast_node_t;
 #pragma GCC diagnostic pop
 
-typedef arena_t ast_t;
-#define ast_tree_new() (arena_new(64 * sizeof(ast_node_t)))
-#define ast_tree_free(tree) (arena_free(tree))
-void ast_tree_visualize(ast_node_t *root);
+typedef struct ast {
+	arena_t arena;
+	ast_node_t *root;
+} ast_t;
 
 ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type,string_t content);
 #define ast_pnode_left(parent,child) (parent->children.pair.left = child)
@@ -43,5 +43,9 @@ ast_node_t *ast_pnode_new(ast_t *tree, ast_node_type_t type,string_t content);
 
 ast_node_t *ast_lnode_new(ast_t *tree, size_t capacity, ast_node_type_t type, string_t content);
 ast_node_t *ast_lnode_add(ast_t *tree, ast_node_t *parent, ast_node_t *child);
+
+ast_t ast_tree_new(void);
+void ast_tree_free(ast_t *tree);
+void ast_tree_visualize(ast_t *tree);
 
 #endif // AST_H

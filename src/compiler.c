@@ -27,8 +27,8 @@ int main(int argc, char **argv) {
 	err_init();
 	lexer_init(file);
 	ast_t ast = ast_tree_new();
-	ast_node_t *root = parser_start(file, &ast);
-	ast_tree_visualize(root);
+	parser_start(file, &ast);
+	ast_tree_visualize(&ast);
 	ast_tree_free(&ast);
 	err_finalize();
 
