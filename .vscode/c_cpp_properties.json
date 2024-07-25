@@ -8,6 +8,7 @@
 				"${workspaceFolder}/incl/common",
 				"${workspaceFolder}/incl/frontend",
 				"${workspaceFolder}/incl/frontend/lexical",
+				"${workspaceFolder}/incl/frontend/semantic",
 				"${workspaceFolder}/incl/frontend/syntactic"
 			],
 			"defines": [],

@@ -3,6 +3,7 @@
 #include "frontend/lexical/lexer.h"
 #include "frontend/syntactic/ast.h"
 #include "frontend/syntactic/parser.h"
+#include "frontend/semantic/scope.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,13 +25,20 @@ int main(int argc, char **argv) {
 	error_if(!file.content.string);
 	fclose(fdesc);
 
-	err_init();
-	lexer_init(file);
-	ast_t ast = ast_tree_new();
-	parser_start(file, &ast);
-	ast_tree_visualize(&ast);
-	ast_tree_free(&ast);
-	err_finalize();
+	{
+		err_init();
+
+		lexer_init(file);
+		
+		ast_t ast = ast_tree_new();
+		parser_run(file, &ast);
+		ast_tree_visualize(&ast);
+		
+		scope_run(&ast);
+
+		ast_tree_free(&ast);
+		err_finalize();
+	}
 
 	free(file.content.string);
 	exit(EXIT_SUCCESS);
