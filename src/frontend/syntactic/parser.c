@@ -46,7 +46,7 @@ static void report(token_t *problem, char *message) {
 }
 
 static token_t *expect(token_type_t type) {
-	token_t *next = lexer_peek();
+	token_t *next = CONSUME;
 	if(next->type != type) {
 		string_t error_spot = next->content;
 		size_t message_length = sizeof "Expected " + strlen(token_type_strs[type]);
@@ -215,7 +215,7 @@ static ast_node_t *statement_content(bool with_end) {
 			if(with_end) expect(TOK_KW_END);
 			break;
 		case TOK_KW_DO:
-			node = enclosed_block(true);
+			node = enclosed_block(with_end);
 			break;
 		default: report(CONSUME, "\":\" or inline block");
 	}
@@ -257,6 +257,8 @@ static ast_node_t *parse_block(void) {
 			break;
 		case TOK_EOF:
 		case TOK_KW_END:
+		case TOK_KW_ELSE:
+		case TOK_KW_ELIF:
 			goto exit;
 		default: report(CONSUME, "a statement or an expression");
 	} exit: ;
